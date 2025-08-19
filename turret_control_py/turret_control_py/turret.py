@@ -12,18 +12,47 @@ class TurretControlNode(Node):
     def __init__(self):
         super().__init__("turret_controller_node")
 
-        self.serialPort = '/dev/ttyAMA2'
-        self.serial = serial.Serial(
-            port=self.serialPort,
+        self.serialPortPan = '/dev/ttyAMA2'
+        self.serialPortTilt = '/dev/ttyAMA4'
+        self.serialPortGun = '/dev/ttyAMA3'
+        self.serialPan = serial.Serial(
+            port=self.serialPortPan,
             baudrate=115200,
             parity=serial.PARITY_NONE,
             stopbits=serial.STOPBITS_ONE,
             bytesize=serial.EIGHTBITS
         )
-        self.serial.close()
-        self.serial.open()
-        self.serial.isOpen()
-        self.packetBuffer = []
+        self.serialPan.close()
+        self.serialPan.open()
+        self.serialPan.isOpen()
+
+        self.serialTilt = serial.Serial(
+            port=self.serialPortTilt,
+            baudrate=115200,
+            parity=serial.PARITY_NONE,
+            stopbits=serial.STOPBITS_ONE,
+            bytesize=serial.EIGHTBITS
+        )
+        self.serialTilt.close()
+        self.serialTilt.open()
+        self.serialTilt.isOpen()
+
+        self.serialGun = serial.Serial(
+            port=self.serialPortGun,
+            baudrate=9600,
+            parity=serial.PARITY_NONE,
+            stopbits=serial.STOPBITS_ONE,
+            bytesize=serial.EIGHTBITS
+        )
+        self.serialGun.close()
+        self.serialGun.open()
+        self.serialGun.isOpen()
+
+        self.packetBufferPan = []
+        self.packetBufferTilt = []
+        self.packetBufferGun = []
+
+        self.encoderReadCycleTime = 0.2  # seconds, how often to read the encoders
 
         self.panIsMove = False
         self.panSteps = 0
@@ -31,15 +60,19 @@ class TurretControlNode(Node):
         self.panSafeAngle = 0.0
         self.panAngleError = 0.0
         self.lastPanEncoderTime = time.time()   
+        self.lastPanEncoderReadTime = time.time()
         self.tiltIsMove = False
         self.tiltSteps = 0
         self.tiltAngle = 0.0
         self.tiltSafeAngle = 0.0
         self.tiltAngleError = 0.0
         self.lastTiltEncoderTime = time.time()
-        self.lastEncoderReadTime = time.time()
+        self.lastTiltEncoderReadTime = time.time()
 
-        self.servo_comm_timer = self.create_timer(0.1, self.servo_packet_callback)
+        self.pan_comm_timer = self.create_timer(0.1, self.pan_packet_callback)
+        self.tilt_comm_timer = self.create_timer(0.1, self.tilt_packet_callback)
+        self.gun_comm_timer = self.create_timer(1, self.gun_packet_callback)
+
         self.publisher_timer = self.create_timer(0.1, self.publisher_callback)
         self.get_logger().info("Turret controller has been started.")
 
@@ -78,7 +111,7 @@ class TurretControlNode(Node):
                 packet = servo_packets.moveToAngle("pan", "cw", int(abs(panDeltaAngle) * 4 * 64 / 1.8), 10)
             self.panSafeAngle += panDeltaAngle
             self.panIsMove = True
-            self.packetBuffer.append(packet)
+            self.packetBufferPan.append(packet)
 
         else:
             if self.panIsMove == False:
@@ -104,7 +137,7 @@ class TurretControlNode(Node):
                 packet = servo_packets.moveToAngle("tilt", "cw", int(abs(tiltDeltaAngle) * 5 * 64 / 1.8), 10)
             self.tiltSafeAngle += tiltDeltaAngle
             self.tiltIsMove = True
-            self.packetBuffer.append(packet)
+            self.packetBufferTilt.append(packet)
 
         else:
             if self.tiltIsMove == False:
@@ -112,36 +145,30 @@ class TurretControlNode(Node):
                 self.tiltSafeAngle = self.tiltAngle / 5.0
 
     def publisher_callback(self):
-        self.angleMsg.data = self.panAngle / 4.0 # convert motor angle to turret pan angle
+        self.angleMsg.data = self.panSafeAngle
         self.pan_angle_publisher.publish(self.angleMsg)
-        self.angleMsg.data = self.tiltAngle / 5.0 # convert motor angle to turret tilt angle
+        self.angleMsg.data = self.tiltSafeAngle
         self.tilt_angle_publisher.publish(self.angleMsg)
 
-    def servo_packet_callback(self):
+    def pan_packet_callback(self):
 
         #read encoders only in every few hundreds ms
-        if time.time() - self.lastEncoderReadTime > 0.2:
+        if time.time() - self.lastPanEncoderReadTime > self.encoderReadCycleTime:
 
             if self.panIsMove == False:
                 packet = servo_packets.readAngle("pan")
-                self.packetBuffer.append(packet)
-                packet = servo_packets.readSteps("pan")
-                #self.packetBuffer.append(packet)
+                self.packetBufferPan.append(packet)
+                #packet = servo_packets.readSteps("pan")
+                #self.packetBufferPan.append(packet)
 
-            if self.tiltIsMove == False:
-                packet = servo_packets.readAngle("tilt")
-                self.packetBuffer.append(packet)
-                packet = servo_packets.readSteps("tilt")
-                #self.packetBuffer.append(packet)
-
-            self.lastEncoderReadTime = time.time()
+            self.lastPanEncoderReadTime = time.time()
 
         try:
 
-            if len(self.packetBuffer) == 0:
+            if len(self.packetBufferPan) == 0:
                 out = []
-                while self.serial.inWaiting() > 0:
-                    out.append(self.serial.read(1))
+                while self.serialPan.inWaiting() > 0:
+                    out.append(self.serialPan.read(1))
 
                 if len(out) > 0:
                     print("Received data without packet in buffer:", out)
@@ -150,25 +177,23 @@ class TurretControlNode(Node):
                             if int.from_bytes(out[i+1]) == 2:
                                 print("Pan movement finished: ", out[1])
                                 self.panIsMove = False
-                        elif int.from_bytes(byte) == int(0xe0):
-                            if int.from_bytes(out[i+1]) == 2:
-                                print("Tilt movement finished: ", out[1])
-                                self.tiltIsMove = False
+                        else:
+                            print("Wrong data buffer:", out)
 
 
-            while len(self.packetBuffer) != 0:
+            while len(self.packetBufferPan) != 0:
 
                 out = []
 
-                packet = self.packetBuffer.pop(0) 
+                packet = self.packetBufferPan.pop(0) 
                 #print(packet)
-                self.serial.write(packet)
+                self.serialPan.write(packet)
 
                 time.sleep(0.01)
 
                 #print(self.serial.inWaiting())
-                while self.serial.inWaiting() > 0:
-                    out.append(self.serial.read(1))
+                while self.serialPan.inWaiting() > 0:
+                    out.append(self.serialPan.read(1))
 
                 if out != '':
 
@@ -187,18 +212,8 @@ class TurretControlNode(Node):
                                 continue
                             else:
                                 raise TypeError("Unknown movement response on pan motor:", out)
-
-                    if self.tiltIsMove:
-                        if int.from_bytes(out[0]) == int(0xe0):   
-                            if int.from_bytes(out[1]) == 1:
-                                print("Tilt movement started: ", out[1])
-                                continue
-                            elif int.from_bytes(out[1]) == 2:
-                                print("Tilt movement finished: ", out[1])
-                                self.tiltIsMove = False
-                                continue
-                            else:
-                                raise TypeError("Unknown movement response on tilt motor:", out)
+                        else:
+                            raise TypeError("Invalid motor ID in pan packet response", packet, out)
 
                     if int.from_bytes(out[0]) == packet[0]:
                         if hex(packet[0]) == "0xe1":
@@ -218,7 +233,85 @@ class TurretControlNode(Node):
                                 pass #TODO 0x01 success
                             else:
                                 raise TypeError("Unknown packet to process", packet, out)
-                        elif hex(packet[0]) == "0xe0":
+                        else:
+                            raise TypeError("Invalid motor ID", packet, out)
+                    else:
+                        raise TypeError("Motor ID mismatch!", packet, out)
+                    pass
+                else:
+                    #print("empty")
+                    pass
+
+        except Exception as error:
+                    print("Comm error occurred:", error)
+
+    def tilt_packet_callback(self):
+
+        #read encoders only in every few hundreds ms
+        if time.time() - self.lastTiltEncoderReadTime > self.encoderReadCycleTime:
+
+            if self.tiltIsMove == False:
+                packet = servo_packets.readAngle("tilt")
+                self.packetBufferTilt.append(packet)
+                #packet = servo_packets.readSteps("tilt")
+                #self.packetBufferTilt.append(packet)
+
+            self.lastTiltEncoderReadTime = time.time()
+
+        try:
+
+            if len(self.packetBufferTilt) == 0:
+                out = []
+                while self.serialTilt.inWaiting() > 0:
+                    out.append(self.serialTilt.read(1))
+
+                if len(out) > 0:
+                    print("Received data without packet in buffer:", out)
+                    for i, byte in enumerate(out):
+                        if int.from_bytes(byte) == int(0xe0):
+                            if int.from_bytes(out[i+1]) == 2:
+                                print("Tilt movement finished: ", out[1])
+                                self.tiltIsMove = False
+                        else:
+                            print("Wrong data buffer:", out)
+
+
+            while len(self.packetBufferTilt) != 0:
+
+                out = []
+
+                packet = self.packetBufferTilt.pop(0) 
+                #print(packet)
+                self.serialTilt.write(packet)
+
+                time.sleep(0.01)
+
+                #print(self.serial.inWaiting())
+                while self.serialTilt.inWaiting() > 0:
+                    out.append(self.serialTilt.read(1))
+
+                if out != '':
+
+                    #TODO: checksum check
+                    
+                    #print(out)
+                    # check if packet motor address matches with response motor address, just in case...
+                    if self.tiltIsMove:
+                        if int.from_bytes(out[0]) == int(0xe0):
+                            if int.from_bytes(out[1]) == 1:
+                                print("Tilt movement started: ", out[1])
+                                continue
+                            elif int.from_bytes(out[1]) == 2:
+                                print("Tilt movement finished: ", out[1])
+                                self.tiltIsMove = False
+                                continue
+                            else:
+                                raise TypeError("Unknown movement response on tilt motor:", out)
+                        else:
+                            raise TypeError("Invalid motor ID in tilt packet response", packet, out)
+
+                    if int.from_bytes(out[0]) == packet[0]:
+                        if hex(packet[0]) == "0xe0":
                             if hex(packet[1]) == "0x33":   # read the steps from the encoder
                                 self.tiltSteps = servo_packets.processSteps("tilt",out)
                                 self.lastTiltEncoderTime = time.time()
@@ -234,7 +327,7 @@ class TurretControlNode(Node):
                             elif hex(packet[1]) == "0xf7": # stop the motor
                                 pass #TODO 0x01 success
                             else:
-                                raise TypeError("Unknown packet to process:", packet, out)
+                                raise TypeError("Unknown packet to process", packet, out)
                         else:
                             raise TypeError("Invalid motor ID", packet, out)
                     else:
@@ -247,12 +340,42 @@ class TurretControlNode(Node):
         except Exception as error:
                     print("Comm error occurred:", error)
 
+    def gun_packet_callback(self):
+
+        out = []
+
+        packet = "AMMO\r"
+        packet = bytearray(packet, "utf-8")
+
+        while self.serialGun.inWaiting() > 0:
+            out.append(self.serialGun.read(1))
+
+        if out != '':
+            
+            print(out)
+
+        self.serialGun.write(packet)
+        self.serialGun.flush()
+
+        time.sleep(1)
+
+        out = []
+
+        #print(self.serial.inWaiting())
+        while self.serialGun.inWaiting() > 0:
+            out.append(self.serialGun.read(1))
+
+        if out != '':
+            
+            print(b"".join(out).decode("utf-8"))
+
     def run(self):
         self.get_logger().info("Turret control node is running.")
+
         packet = servo_packets.enableMotor("pan", 1)
-        self.packetBuffer.append(packet)
+        self.packetBufferPan.append(packet)
         packet = servo_packets.enableMotor("tilt", 1)
-        self.packetBuffer.append(packet)
+        self.packetBufferTilt.append(packet)
 
         time.sleep(1)  # Wait for motors to enable
 
@@ -263,22 +386,22 @@ class TurretControlNode(Node):
                 if self.panAngle > 0.06:
                     self.panIsMove = True
                     packet = servo_packets.moveToAngle("pan", "ccw", int(abs(self.panAngle) * 64.0 / 1.8), 5)
-                    self.packetBuffer.append(packet)
+                    self.packetBufferPan.append(packet)
                 else:
                     self.panIsMove = True
                     packet = servo_packets.moveToAngle("pan", "cw", int(abs(self.panAngle) * 64.0 / 1.8), 5)
-                    self.packetBuffer.append(packet)
+                    self.packetBufferPan.append(packet)
             else:
                 self.get_logger().info("Pan angle is already zero.")
             if abs(self.tiltAngle) > 0.06:
                 if self.tiltAngle > 0.06:
                     self.tiltIsMove = True
                     packet = servo_packets.moveToAngle("tilt", "ccw", int(abs(self.tiltAngle) / 1.8 * 64), 5)
-                    self.packetBuffer.append(packet)
+                    self.packetBufferTilt.append(packet)
                 else:
                     self.tiltIsMove = True
                     packet = servo_packets.moveToAngle("tilt", "cw", int(abs(self.tiltAngle) / 1.8 * 64), 5)
-                    self.packetBuffer.append(packet)
+                    self.packetBufferTilt.append(packet)
             else:
                 self.get_logger().info("Tilt angle is already zero.")
         
@@ -298,7 +421,8 @@ class TurretControlNode(Node):
             #self.tiltIsMove = True
             #packet = servo_packets.moveToAngle("tilt","ccw",int(30 * 5 * 64 / 1.8),5)
             #self.packetBuffer.append(packet)
-            time.sleep(5)
+            self.get_logger().info(f"Pan angle: {self.panAngle}, Pan steps: {self.panSteps}, Tilt angle: {self.tiltAngle}, Tilt steps: {self.tiltSteps}")
+            time.sleep(1)
 
         self.running = False
 
