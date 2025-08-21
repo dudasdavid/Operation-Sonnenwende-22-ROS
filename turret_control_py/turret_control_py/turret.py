@@ -2,6 +2,7 @@
 import rclpy
 from rclpy.node import Node     # Import ROS2 Node as parent for our own node class
 from std_msgs.msg import Float32, UInt8  # Import message types for publishing and subscribing
+from turret_interfaces.msg import GunFeedback
 from turret_interfaces.srv import EnableTurret, DisableTurret  # Import service messages 
 
 import threading
@@ -53,8 +54,10 @@ class TurretControlNode(Node):
         self.packetBufferTilt = []
         self.packetBufferGun = []
 
-        self.encoderReadCycleTime = 0.2  # seconds, how often to read the encoders
+        self.encoderReadCycleTime = 0.05  # seconds, how often to read the encoders
+
         self.turretEnabled = True  # Flag to check if turret is enabled
+        self.movementCooldown = 0.5  # seconds, cooldown time for movement commands
 
         self.panIsMove = False
         self.panSteps = 0
@@ -63,6 +66,7 @@ class TurretControlNode(Node):
         self.panAngleError = 0.0
         self.lastPanEncoderTime = time.time()   
         self.lastPanEncoderReadTime = time.time()
+        self.panStoppedTime = time.time()
         self.tiltIsMove = False
         self.tiltSteps = 0
         self.tiltAngle = 0.0
@@ -70,23 +74,28 @@ class TurretControlNode(Node):
         self.tiltAngleError = 0.0
         self.lastTiltEncoderTime = time.time()
         self.lastTiltEncoderReadTime = time.time()
+        self.tiltStoppedTime = time.time()
+
         self.shootingStartTime = time.time()
         self.shootingCooldown = 3.0  # seconds, cooldown time for shooting
 
         self.pan_comm_timer = self.create_timer(0.1, self.pan_packet_callback)
         self.tilt_comm_timer = self.create_timer(0.1, self.tilt_packet_callback)
-        self.gun_comm_timer = self.create_timer(1, self.gun_packet_callback)
+        self.gun_comm_timer = self.create_timer(2, self.gun_packet_callback)
 
         self.publisher_timer = self.create_timer(0.1, self.publisher_callback)
         self.get_logger().info("Turret controller has been started.")
 
         self.pan_angle_publisher = self.create_publisher(Float32, 'turret_pan_angle_feedback', 10)
         self.tilt_angle_publisher = self.create_publisher(Float32, 'turret_tilt_angle_feedback', 10)
+        self.gun_feedback_publisher = self.create_publisher(GunFeedback, 'turret_gun_feedback', 10)
         self.angleMsg = Float32()
+        self.gunFeedbackMsg = GunFeedback()
 
         self.pan_angle_subscriber = self.create_subscription(Float32, 'turret_pan_angle_request', self.request_pan_angle_callback, 10)
         self.tilt_angle_subscriber = self.create_subscription(Float32, 'turret_tilt_angle_request', self.request_tilt_angle_callback, 10)
         self.shoot_subscriber = self.create_subscription(UInt8, 'turret_shoot_request', self.request_shoot_callback, 10)
+
         self.enableService = self.create_service(EnableTurret, 'turret_enable', self.turret_enable_callback)
         self.disableService = self.create_service(DisableTurret, 'turret_disable', self.turret_disable_callback)
 
@@ -152,7 +161,7 @@ class TurretControlNode(Node):
             self.packetBufferPan.append(packet)
 
         else:
-            if self.panIsMove == False:
+            if self.panIsMove == False and time.time() - self.panStoppedTime > self.movementCooldown:
                 self.get_logger().info(f"Pan safe angle updated from: {self.panSafeAngle} to: {self.panAngle / 4.0}")
                 self.panSafeAngle = self.panAngle / 4.0
 
@@ -178,7 +187,7 @@ class TurretControlNode(Node):
             self.packetBufferTilt.append(packet)
 
         else:
-            if self.tiltIsMove == False:
+            if self.tiltIsMove == False and time.time() - self.tiltStoppedTime > self.movementCooldown:
                 self.get_logger().info(f"Tilt safe angle updated from: {self.tiltSafeAngle} to: {self.tiltAngle / 5.0}")
                 self.tiltSafeAngle = self.tiltAngle / 5.0
 
@@ -191,10 +200,11 @@ class TurretControlNode(Node):
     def pan_packet_callback(self):
 
         #read encoders only in every few hundreds ms
-        if time.time() - self.lastPanEncoderReadTime > self.encoderReadCycleTime:
+        if time.time() - self.lastPanEncoderReadTime > self.encoderReadCycleTime and self.turretEnabled:
 
             if self.panIsMove == False:
                 packet = servo_packets.readAngle("pan")
+                #packet = servo_packets.readEncoder("pan")
                 self.packetBufferPan.append(packet)
                 #packet = servo_packets.readSteps("pan")
                 #self.packetBufferPan.append(packet)
@@ -215,6 +225,7 @@ class TurretControlNode(Node):
                             if int.from_bytes(out[i+1]) == 2:
                                 print("Pan movement finished: ", out[1])
                                 self.panIsMove = False
+                                self.panStoppedTime = time.time()
                         else:
                             print("Wrong data buffer:", out)
 
@@ -247,6 +258,7 @@ class TurretControlNode(Node):
                             elif int.from_bytes(out[1]) == 2:
                                 print("Pan movement finished: ", out[1])
                                 self.panIsMove = False
+                                self.panStoppedTime = time.time()
                                 continue
                             else:
                                 raise TypeError("Unknown movement response on pan motor:", out)
@@ -258,6 +270,8 @@ class TurretControlNode(Node):
                             if hex(packet[1]) == "0x33":   # read the steps from the encoder
                                 self.panSteps = servo_packets.processSteps("pan",out)
                                 self.lastPanEncoderTime = time.time()
+                            elif hex(packet[1]) == "0x30": # read the angle from the encoder
+                                print(servo_packets.processEncoder("pan",out))
                             elif hex(packet[1]) == "0x36": # read the angle from the encoder
                                 self.panAngle = servo_packets.processAngle("pan",out)
                                 self.lastPanEncoderTime = time.time()
@@ -286,7 +300,7 @@ class TurretControlNode(Node):
     def tilt_packet_callback(self):
 
         #read encoders only in every few hundreds ms
-        if time.time() - self.lastTiltEncoderReadTime > self.encoderReadCycleTime:
+        if time.time() - self.lastTiltEncoderReadTime > self.encoderReadCycleTime and self.turretEnabled:
 
             if self.tiltIsMove == False:
                 packet = servo_packets.readAngle("tilt")
@@ -310,6 +324,7 @@ class TurretControlNode(Node):
                             if int.from_bytes(out[i+1]) == 2:
                                 print("Tilt movement finished: ", out[1])
                                 self.tiltIsMove = False
+                                self.tiltStoppedTime = time.time()
                         else:
                             print("Wrong data buffer:", out)
 
@@ -342,6 +357,7 @@ class TurretControlNode(Node):
                             elif int.from_bytes(out[1]) == 2:
                                 print("Tilt movement finished: ", out[1])
                                 self.tiltIsMove = False
+                                self.tiltStoppedTime = time.time()
                                 continue
                             else:
                                 raise TypeError("Unknown movement response on tilt motor:", out)
@@ -392,18 +408,55 @@ class TurretControlNode(Node):
             #print(packet)
             self.serialGun.write(packet)
 
-            time.sleep(0.08)
+            time.sleep(0.1)
 
             #print(self.serialGun.inWaiting())
             while self.serialGun.inWaiting() > 0:
                 out.append(self.serialGun.read(1))
 
-            if out != '':
-                print(b"".join(out).decode("utf-8"))
+            if out != []:
+                #print("Response:")
+                #print(b"".join(out).decode("utf-8").rstrip("\r\n"))
+                if "AMMO:" in b"".join(out).decode("utf-8"):
+                    try:
+                        ammo = int(b"".join(out).decode("utf-8").split("AMMO:")[1].split("\r")[0])
+                        self.gunFeedbackMsg.ammo = ammo
+                        #self.get_logger().info(f"Ammo: {ammo}")
+                    except ValueError:
+                        self.get_logger().error("Invalid AMMO message:")
+                        self.get_logger().error(b"".join(out).decode("utf-8").split(":")[1].split("\r")[0])
+                        self.get_logger().error(b"".join(out).decode("utf-8"))
+                elif "DIST:" in b"".join(out).decode("utf-8"):
+                    try:
+                        distance = int(b"".join(out).decode("utf-8").split("DIST:")[1].split("\r")[0])
+                        self.gunFeedbackMsg.distance_mm = distance
+                        #self.get_logger().info(f"Distance: {distance} mm")
+                    except ValueError:
+                        self.get_logger().error("Invalid DIST message:")
+                        self.get_logger().error(b"".join(out).decode("utf-8").split(":")[1].split("\r")[0])
+                        self.get_logger().error(b"".join(out).decode("utf-8"))
+                elif "MAG:" in b"".join(out).decode("utf-8"):
+                    magazine = b"".join(out).decode("utf-8").split("MAG:")[1].split("\r")[0].strip()
+                    if magazine == "True":
+                        magazine = True
+                    else:
+                        magazine = False
+                    self.gunFeedbackMsg.magazine = magazine
+                    #self.get_logger().info(f"Magazine: {magazine}")
+                elif "VOLT:" in b"".join(out).decode("utf-8"):
+                    voltage = float(b"".join(out).decode("utf-8").split("VOLT:")[1].split("\r")[0])
+                    self.gunFeedbackMsg.voltage = voltage
+                    #self.get_logger().info(f"Voltage: {voltage} V")
+                    
+                else:
+                    self.get_logger().error("Received unknown gun packet response: " + b"".join(out).decode("utf-8"))
+            
+                self.gun_feedback_publisher.publish(self.gunFeedbackMsg)
             else:
-                print("Empty gun packet response")
+                pass
+                #print("Empty gun packet response")
 
-            time.sleep(0.08)  # Give some time for the gun to process the command
+            time.sleep(0.1)  # Give some time for the gun to process the command
 
 
     def run(self):
