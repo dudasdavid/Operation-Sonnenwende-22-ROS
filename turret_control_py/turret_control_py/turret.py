@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node     # Import ROS2 Node as parent for our own node class
-from std_msgs.msg import Float32
+from std_msgs.msg import Float32, Int32  # Import message types for publishing and subscribing
 
 import threading
 import time
@@ -13,8 +13,8 @@ class TurretControlNode(Node):
         super().__init__("turret_controller_node")
 
         self.serialPortPan = '/dev/ttyAMA2'
-        self.serialPortTilt = '/dev/ttyAMA4'
-        self.serialPortGun = '/dev/ttyAMA3'
+        self.serialPortTilt = '/dev/ttyAMA3'
+        self.serialPortGun = '/dev/ttyAMA4'
         self.serialPan = serial.Serial(
             port=self.serialPortPan,
             baudrate=115200,
@@ -82,6 +82,7 @@ class TurretControlNode(Node):
 
         self.pan_angle_subscriber = self.create_subscription(Float32, 'turret_pan_angle_request', self.request_pan_angle_callback, 10)
         self.tilt_angle_subscriber = self.create_subscription(Float32, 'turret_tilt_angle_request', self.request_tilt_angle_callback, 10)
+        self.shoot_subscriber = self.create_subscription(Int32, 'turret_shoot_request', self.request_shoot_callback, 10)
 
         # Start a separate thread for spinning
         self.running = True
@@ -91,6 +92,9 @@ class TurretControlNode(Node):
     def spin_thread_func(self):
         while rclpy.ok() and self.running:
             rclpy.spin_once(self, timeout_sec=0.05)
+
+    def request_shoot_callback(self, msg):
+        pass
 
     def request_pan_angle_callback(self, msg):
         if msg.data > 30:
@@ -342,32 +346,31 @@ class TurretControlNode(Node):
 
     def gun_packet_callback(self):
 
-        out = []
 
-        packet = "AMMO\r"
-        packet = bytearray(packet, "utf-8")
+        self.packetBufferGun.append(bytearray("AMMO\r", "utf-8"))
+        self.packetBufferGun.append(bytearray("DIST\r", "utf-8"))
+        self.packetBufferGun.append(bytearray("MAG\r", "utf-8"))
 
-        while self.serialGun.inWaiting() > 0:
-            out.append(self.serialGun.read(1))
+        while len(self.packetBufferGun) != 0:
+            out = []
 
-        if out != '':
-            
-            print(out)
+            packet = self.packetBufferGun.pop(0) 
+            #print(packet)
+            self.serialGun.write(packet)
 
-        self.serialGun.write(packet)
-        self.serialGun.flush()
+            time.sleep(0.08)
 
-        time.sleep(1)
+            #print(self.serialGun.inWaiting())
+            while self.serialGun.inWaiting() > 0:
+                out.append(self.serialGun.read(1))
 
-        out = []
+            if out != '':
+                print(b"".join(out).decode("utf-8"))
+            else:
+                print("Empty gun packet response")
 
-        #print(self.serial.inWaiting())
-        while self.serialGun.inWaiting() > 0:
-            out.append(self.serialGun.read(1))
+            time.sleep(0.08)  # Give some time for the gun to process the command
 
-        if out != '':
-            
-            print(b"".join(out).decode("utf-8"))
 
     def run(self):
         self.get_logger().info("Turret control node is running.")
