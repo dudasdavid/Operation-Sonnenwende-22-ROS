@@ -2,6 +2,7 @@
 import rclpy
 from rclpy.node import Node     # Import ROS2 Node as parent for our own node class
 from std_msgs.msg import Float32, Int32  # Import message types for publishing and subscribing
+from turret_interfaces.srv import EnableTurret, DisableTurret  # Import service messages 
 
 import threading
 import time
@@ -53,6 +54,7 @@ class TurretControlNode(Node):
         self.packetBufferGun = []
 
         self.encoderReadCycleTime = 0.2  # seconds, how often to read the encoders
+        self.turretEnabled = True  # Flag to check if turret is enabled
 
         self.panIsMove = False
         self.panSteps = 0
@@ -83,6 +85,8 @@ class TurretControlNode(Node):
         self.pan_angle_subscriber = self.create_subscription(Float32, 'turret_pan_angle_request', self.request_pan_angle_callback, 10)
         self.tilt_angle_subscriber = self.create_subscription(Float32, 'turret_tilt_angle_request', self.request_tilt_angle_callback, 10)
         self.shoot_subscriber = self.create_subscription(Int32, 'turret_shoot_request', self.request_shoot_callback, 10)
+        self.enableService = self.create_service(EnableTurret, 'turret_enable', self.turret_enable_callback)
+        self.disableService = self.create_service(DisableTurret, 'turret_disable', self.turret_disable_callback)
 
         # Start a separate thread for spinning
         self.running = True
@@ -92,6 +96,26 @@ class TurretControlNode(Node):
     def spin_thread_func(self):
         while rclpy.ok() and self.running:
             rclpy.spin_once(self, timeout_sec=0.05)
+
+    def turret_enable_callback(self, request, response):
+        self.turretEnabled = True
+        packet = servo_packets.enableMotor("pan", 1)
+        self.packetBufferPan.append(packet)
+        packet = servo_packets.homeMotor("pan")
+        self.packetBufferPan.append(packet)
+        packet = servo_packets.enableMotor("tilt", 1)
+        self.packetBufferTilt.append(packet)
+        packet = servo_packets.homeMotor("tilt")
+        self.packetBufferTilt.append(packet)
+        return response
+
+    def turret_disable_callback(self, request, response):
+        self.turretEnabled = False
+        packet = servo_packets.enableMotor("pan", 0)
+        self.packetBufferPan.append(packet)
+        packet = servo_packets.enableMotor("tilt", 0)
+        self.packetBufferTilt.append(packet)
+        return response
 
     def request_shoot_callback(self, msg):
         pass
