@@ -5,6 +5,22 @@ def calcCheckSum(input_byte_array):
 def padded_hex(s):
     return '0x' + s[2:].zfill(8)
 
+def readEncoder(motor_id):
+    packet = bytearray()
+
+    if motor_id == "pan":
+        packet.append(0xe1)
+    elif motor_id == "tilt":
+        packet.append(0xe0)
+    else:
+        raise TypeError("Wrong motor ID")
+    
+    packet.append(0x30)
+
+    packet = calcCheckSum(packet)
+
+    return packet
+
 def readSteps(motor_id):
     packet = bytearray()
 
@@ -52,6 +68,18 @@ def readAngleError(motor_id):
     packet = calcCheckSum(packet)
 
     return packet
+
+def processEncoder(motor_id, input_byte_array):
+    #print(motor_id, input_byte_array)
+
+    input_bytes = b''
+    for i in range(1,3):
+        input_bytes += input_byte_array[i]
+
+    angle = int.from_bytes(input_bytes, byteorder='big', signed=True)
+    #print(int.from_bytes(input_bytes, byteorder='big', signed=True))
+
+    return angle
 
 def processSteps(motor_id, input_byte_array):
     #print(motor_id, input_byte_array)
@@ -150,6 +178,24 @@ def enableMotor(motor_id, ena):
         packet.append(0x01)
     else:
         packet.append(0x00)
+
+    packet = calcCheckSum(packet)
+
+    return packet 
+
+def homeMotor(motor_id):
+    packet = bytearray()
+
+    if motor_id == "pan":
+        packet.append(0xe1)
+    elif motor_id == "tilt":
+        packet.append(0xe0)
+    else:
+        raise TypeError("Wrong motor ID")
+    
+    # home motor packet header    
+    packet.append(0x94)
+    packet.append(0x00)
 
     packet = calcCheckSum(packet)
 
