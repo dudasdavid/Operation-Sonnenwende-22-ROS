@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<!-- Operation Sonnenwende Turret -->
+<robot name="turret" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:arg name="prefix" default="" />
+
+  <xacro:include filename="$(find turret_description)/urdf/materials.xacro" />
+  <xacro:include filename="$(find turret_description)/urdf/turret.xacro" />
+
+
+  <xacro:turret prefix="$(arg prefix)" />
+
+
+  <!-- Global reference link -->
+  <link name="world"/>
+
+  <!-- Used for fixing robot to the UR3e -->
+  <joint name="world_fixed" type="fixed">
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <parent link="world"/>
+    <child link="$(arg prefix)turret_base"/>
+  </joint>
+
+</robot>

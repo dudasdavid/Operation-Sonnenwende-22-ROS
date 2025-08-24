@@ -1,0 +1,80 @@
+<?xml version="1.0"?>
+<!-- Operation Sonnenwende Turret -->
+
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="turret" params="prefix">
+
+    <xacro:property
+      name="meshes_file_direction"
+      value="package://turret_description/meshes"/>
+
+    <!-- Base -->
+    <link name="${prefix}turret_base">
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <box size=".4 .2 .05"/>
+          <!-- <mesh filename="${meshes_file_direction}/turret_base.stl" scale="0.001 0.001 0.001"/> -->
+        </geometry>
+      </collision>
+
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <box size=".4 .2 .05"/>
+          <!-- <mesh filename="${meshes_file_direction}/turret_base.stl" scale="0.001 0.001 0.001"/> -->
+        </geometry>
+        <material name="grey">
+          <color rgba="0.2 0.2 0.2 1"/>
+        </material>
+      </visual>
+
+      <inertial>
+        <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+        <mass value="2.0"/>
+        <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001" />
+      </inertial>
+    </link>
+
+    <!-- Pan joint -->
+    <joint name="${prefix}pan_joint" type="revolute">
+      <parent link="${prefix}turret_base"/>
+      <child link="${prefix}pan_link"/>
+      <origin xyz="0.0 0.0 0.05" rpy="0 0 0"/>
+      <axis xyz="1 0 0"/>
+      <limit velocity="1.0" effort="5" lower="-0.1" upper="1.1"/>
+      <dynamics damping="5.0"/>
+    </joint>
+
+    <!-- Pan link -->
+    <link name="${prefix}pan_link">
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius=".1" length=".05"/>
+          <!-- <mesh filename="${meshes_file_direction}/pan_link.stl" scale="0.001 0.001 0.001"/> -->
+        </geometry>
+      </collision>
+
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius=".1" length=".05"/>
+          <!-- <mesh filename="${meshes_file_direction}/pan_link.stl" scale="0.001 0.001 0.001"/> -->
+        </geometry>
+        <material name="orange">
+          <color rgba="0.2 0.2 0.2 1"/>
+        </material>
+      </visual>
+
+      <inertial>
+        <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+        <mass value="0.5"/>
+        <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001" />
+      </inertial>
+    </link>
+
+
+  </xacro:macro>
+</robot>
