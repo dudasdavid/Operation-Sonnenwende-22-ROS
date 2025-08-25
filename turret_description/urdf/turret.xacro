@@ -12,18 +12,16 @@
     <!-- Base -->
     <link name="${prefix}turret_base">
       <collision>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <origin xyz="0.08 0.08 0" rpy="0 0 3.14159"/>
         <geometry>
-          <box size=".4 .2 .05"/>
-          <!-- <mesh filename="${meshes_file_direction}/turret_base.stl" scale="0.001 0.001 0.001"/> -->
+          <mesh filename="${meshes_file_direction}/turret_base.stl" scale="0.001 0.001 0.001"/>
         </geometry>
       </collision>
 
       <visual>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <origin xyz="0.08 0.08 0" rpy="0 0 3.14159"/>
         <geometry>
-          <box size=".4 .2 .05"/>
-          <!-- <mesh filename="${meshes_file_direction}/turret_base.stl" scale="0.001 0.001 0.001"/> -->
+          <mesh filename="${meshes_file_direction}/turret_base.stl" scale="0.001 0.001 0.001"/>
         </geometry>
         <material name="grey">
           <color rgba="0.2 0.2 0.2 1"/>
@@ -31,7 +29,7 @@
       </visual>
 
       <inertial>
-        <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+        <origin xyz="0.08 0.08 0" rpy="0 0 3.14159"/>
         <mass value="2.0"/>
         <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001" />
       </inertial>
@@ -41,27 +39,25 @@
     <joint name="${prefix}pan_joint" type="revolute">
       <parent link="${prefix}turret_base"/>
       <child link="${prefix}pan_link"/>
-      <origin xyz="0.0 0.0 0.05" rpy="0 0 0"/>
-      <axis xyz="1 0 0"/>
-      <limit velocity="1.0" effort="5" lower="-0.1" upper="1.1"/>
+      <origin xyz="0.0 0.0 0.049" rpy="0 0 0"/>
+      <axis xyz="0 0 1"/>
+      <limit velocity="1.0" effort="5" lower="-0.78" upper="0.78"/>
       <dynamics damping="5.0"/>
     </joint>
 
     <!-- Pan link -->
     <link name="${prefix}pan_link">
       <collision>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <origin xyz="-0.0795 -0.0795 0" rpy="0 0 0"/>
         <geometry>
-          <cylinder radius=".1" length=".05"/>
-          <!-- <mesh filename="${meshes_file_direction}/pan_link.stl" scale="0.001 0.001 0.001"/> -->
+          <mesh filename="${meshes_file_direction}/pan_link.stl" scale="0.001 0.001 0.001"/>
         </geometry>
       </collision>
 
       <visual>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <origin xyz="-0.0795 -0.0795 0" rpy="0 0 0"/>
         <geometry>
-          <cylinder radius=".1" length=".05"/>
-          <!-- <mesh filename="${meshes_file_direction}/pan_link.stl" scale="0.001 0.001 0.001"/> -->
+          <mesh filename="${meshes_file_direction}/pan_link.stl" scale="0.001 0.001 0.001"/>
         </geometry>
         <material name="orange">
           <color rgba="0.2 0.2 0.2 1"/>
@@ -69,12 +65,161 @@
       </visual>
 
       <inertial>
-        <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+        <origin xyz="-0.0795 -0.0795 0" rpy="0 0 0"/>
         <mass value="0.5"/>
         <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001" />
       </inertial>
     </link>
 
+    <!-- Tilt joint -->
+    <joint name="${prefix}tilt_joint" type="revolute">
+      <parent link="${prefix}pan_link"/>
+      <child link="${prefix}tilt_link"/>
+      <origin xyz="0.0 0.1005 0.2061" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+      <limit velocity="1.0" effort="5" lower="-0.523" upper="0.523"/>
+      <dynamics damping="5.0"/>
+    </joint>
+
+    <!-- Tilt link -->
+    <link name="${prefix}tilt_link">
+      <collision>
+        <origin xyz="0.0275 0.0 0.0275" rpy="1.5708 3.14159 0"/>
+        <geometry>
+          <mesh filename="${meshes_file_direction}/tilt_link.stl" scale="0.001 0.001 0.001"/>
+        </geometry>
+      </collision>
+
+      <visual>
+        <origin xyz="0.0275 0.0 0.0275" rpy="1.5708 3.14159 0"/>
+        <geometry>
+          <mesh filename="${meshes_file_direction}/tilt_link.stl" scale="0.001 0.001 0.001"/>
+        </geometry>
+        <material name="orange">
+          <color rgba="0.2 0.2 0.2 1"/>
+        </material>
+      </visual>
+
+      <inertial>
+        <origin xyz="0.0275 0.0 0.0275" rpy="1.5708 3.14159 0"/>
+        <mass value="0.5"/>
+        <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001" />
+      </inertial>
+    </link>
+
+    <!-- Gun joint -->
+    <joint name="${prefix}gun_joint" type="fixed">
+      <parent link="${prefix}tilt_link"/>
+      <child link="${prefix}gun_link"/>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+    </joint>
+
+    <!-- Gun link -->
+    <link name="${prefix}gun_link">
+      <collision>
+        <origin xyz="0.17135 -0.075 0.160" rpy="1.5708 3.14159 0.0"/>
+        <geometry>
+          <mesh filename="${meshes_file_direction}/gun.stl" scale="0.001 0.001 0.001"/>
+        </geometry>
+      </collision>
+
+      <visual>
+        <origin xyz="0.17135 -0.075 0.160" rpy="1.5708 3.14159 0.0"/>
+        <geometry>
+          <mesh filename="${meshes_file_direction}/gun.stl" scale="0.001 0.001 0.001"/>
+        </geometry>
+        <material name="blue">
+          <color rgba="0.2 0.2 0.2 1"/>
+        </material>
+      </visual>
+
+      <inertial>
+        <origin xyz="0.17135 -0.075 0.160" rpy="1.5708 3.14159 0.0"/>
+        <mass value="0.5"/>
+        <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001" />
+      </inertial>
+    </link>
+
+  <!-- Gun EE-->
+  <joint type="fixed" name="gun_ee_joint">
+    <origin xyz="0.17135 -0.099 -0.0375" rpy="0 0 0"/>
+    <child link="gun_ee_link"/>
+    <parent link="gun_link"/>
+  </joint>
+
+  <link name='gun_ee_link'>
+    <inertial>
+      <mass value="0.1"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia
+          ixx="1e-6" ixy="0" ixz="0"
+          iyy="1e-6" iyz="0"
+          izz="1e-6"
+      />
+    </inertial>
+
+    <collision name='collision'>
+      <origin xyz="0 0 0" rpy="0 0 0"/> 
+      <geometry>
+        <sphere radius=".005"/>
+      </geometry>
+    </collision>
+
+    <visual name='visual'>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <sphere radius=".005"/>
+      </geometry>
+    </visual>
+
+  </link>
+
+  <!-- Camera-->
+  <joint type="fixed" name="camera_joint">
+    <origin xyz="-0.01 0.085 0.29" rpy="0 -0.174533 0"/>
+    <child link="camera_link"/>
+    <parent link="pan_link"/>
+  </joint>
+
+  <link name='camera_link'>
+    <inertial>
+      <mass value="0.1"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia
+          ixx="1e-6" ixy="0" ixz="0"
+          iyy="1e-6" iyz="0"
+          izz="1e-6"
+      />
+    </inertial>
+
+    <collision name='collision'>
+      <origin xyz="0 0 0" rpy="0 0 0"/> 
+      <geometry>
+        <box size=".03 .03 .03"/>
+      </geometry>
+    </collision>
+
+    <visual name='camera_link_visual'>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size=".03 .03 .03"/>
+      </geometry>
+    </visual>
+
+  </link>
+
+  <gazebo reference="camera_link">
+    <material>Gazebo/Red</material>
+  </gazebo>
+
+  <joint type="fixed" name="camera_optical_joint">
+    <origin xyz="0 0 0" rpy="-1.5707 0 -1.5707"/>
+    <child link="camera_link_optical"/>
+    <parent link="camera_link"/>
+  </joint>
+
+  <link name="camera_link_optical">
+  </link>
 
   </xacro:macro>
 </robot>
