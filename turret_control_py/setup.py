@@ -20,7 +20,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'turret_controller = turret_control_py.turret:main',
+            'turret_controller = turret_control_py.turret_controller:main',
+            'gun_controller = turret_control_py.gun_controller:main',
+            'ballistic_marker = turret_control_py.ballistic_marker:main',
             'servo_packets = turret_control_py.servo_packets:main',
         ],
     },
