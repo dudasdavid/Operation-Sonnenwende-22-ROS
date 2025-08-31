@@ -3,9 +3,11 @@ import rclpy
 from rclpy.node import Node     # Import ROS2 Node as parent for our own node class
 from std_msgs.msg import Float32  # Import message types for publishing and subscribing
 from turret_interfaces.srv import EnableTurret, DisableTurret  # Import service messages 
+from sensor_msgs.msg import JointState
 
 import threading
 import time
+import math
 import serial
 import turret_control_py.servo_packets as servo_packets  # Import the servo_packets module
 
@@ -71,6 +73,7 @@ class TurretControlNode(Node):
 
         self.pan_angle_publisher = self.create_publisher(Float32, 'turret_pan_angle_feedback', 10)
         self.tilt_angle_publisher = self.create_publisher(Float32, 'turret_tilt_angle_feedback', 10)
+        self.joint_publisher = self.create_publisher(JointState, '/joint_states', 10)
         self.angleMsg = Float32()
 
         self.pan_angle_subscriber = self.create_subscription(Float32, 'turret_pan_angle_request', self.request_pan_angle_callback, 10)
@@ -165,6 +168,18 @@ class TurretControlNode(Node):
         self.pan_angle_publisher.publish(self.angleMsg)
         self.angleMsg.data = self.tiltSafeAngle
         self.tilt_angle_publisher.publish(self.angleMsg)
+
+        msg = JointState()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.name = ['pan_joint', 'tilt_joint']
+        msg.position = [
+            math.radians(self.panSafeAngle),
+            math.radians(self.tiltSafeAngle)
+        ]
+        msg.velocity = []
+        msg.effort = []
+        
+        self.joint_publisher.publish(msg)
 
     def pan_packet_callback(self):
 
