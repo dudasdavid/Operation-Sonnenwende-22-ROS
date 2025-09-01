@@ -97,9 +97,13 @@ class TurretControlNode(Node):
         self.packetBufferPan.append(packet)
         packet = servo_packets.homeMotor("pan")
         self.packetBufferPan.append(packet)
+        packet = servo_packets.zeroMotor("pan")
+        self.packetBufferPan.append(packet)
         packet = servo_packets.enableMotor("tilt", 1)
         self.packetBufferTilt.append(packet)
         packet = servo_packets.homeMotor("tilt")
+        self.packetBufferTilt.append(packet)
+        packet = servo_packets.zeroMotor("tilt")
         self.packetBufferTilt.append(packet)
         return response
 

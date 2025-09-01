@@ -201,6 +201,24 @@ def homeMotor(motor_id):
 
     return packet 
 
+def zeroMotor(motor_id):
+    packet = bytearray()
+
+    if motor_id == "pan":
+        packet.append(0xe1)
+    elif motor_id == "tilt":
+        packet.append(0xe0)
+    else:
+        raise TypeError("Wrong motor ID")
+    
+    # home motor packet header    
+    packet.append(0x91)
+    packet.append(0x00)
+
+    packet = calcCheckSum(packet)
+
+    return packet 
+
 def moveToAngle(motor_id, dir, angle, speed):
     packet = bytearray()
 
