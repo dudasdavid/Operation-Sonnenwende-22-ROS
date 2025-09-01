@@ -13,30 +13,32 @@ class GunControlNode(Node):
     def __init__(self):
         super().__init__("gun_controller_node")
 
-        self.serialPortGun = '/dev/ttyAMA4'
+        self.serialPort = '/dev/ttyAMA4'
 
-        self.serialGun = serial.Serial(
-            port=self.serialPortGun,
+        self.serial = serial.Serial(
+            port=self.serialPort,
             baudrate=9600,
             parity=serial.PARITY_NONE,
             stopbits=serial.STOPBITS_ONE,
-            bytesize=serial.EIGHTBITS
+            bytesize=serial.EIGHTBITS,
+            timeout=1
         )
-        self.serialGun.close()
-        self.serialGun.open()
-        self.serialGun.isOpen()
 
-        self.packetBufferGun = []
+        self.serial.close()
+        self.serial.open()
+        self.serial.isOpen()
+
+        self.packetBuffer = []
 
         self.shootingStartTime = time.time()
         self.shootingCooldown = 3.0  # seconds, cooldown time for shooting
 
-        self.gun_comm_timer = self.create_timer(2, self.gun_packet_callback)
+        self.comm_timer = self.create_timer(1, self.packet_callback)
 
-        self.get_logger().info("Turret controller has been started.")
+        self.get_logger().info("Gun controller has been started.")
 
-        self.gun_feedback_publisher = self.create_publisher(GunFeedback, 'turret_gun_feedback', 10)
-        self.gunFeedbackMsg = GunFeedback()
+        self.feedback_publisher = self.create_publisher(GunFeedback, 'turret_gun_feedback', 10)
+        self.feedbackMsg = GunFeedback()
 
         self.shoot_subscriber = self.create_subscription(UInt8, 'turret_shoot_request', self.request_shoot_callback, 10)
 
@@ -56,70 +58,67 @@ class GunControlNode(Node):
                 msg.data = 5
             self.get_logger().info(f"Shooting request received for {msg.data} shots.")
             self.shootingStartTime = time.time()
-            self.packetBufferGun.append(bytearray("SHOT:" + str(msg.data) + "\r", "utf-8"))
+            self.packetBuffer.append(bytearray("SHOT:" + str(msg.data) + "\r", "utf-8"))
         else:
             self.get_logger().info("Shooting is on cooldown, please wait.")
 
-    def gun_packet_callback(self):
+    def packet_callback(self):
 
-        self.packetBufferGun.append(bytearray("AMMO\r", "utf-8"))
-        self.packetBufferGun.append(bytearray("DIST\r", "utf-8"))
-        self.packetBufferGun.append(bytearray("MAG\r", "utf-8"))
+        self.packetBuffer.append(bytearray("STAT\r", "utf-8"))
 
-        while len(self.packetBufferGun) != 0:
+        while len(self.packetBuffer) != 0:
             out = []
 
-            packet = self.packetBufferGun.pop(0) 
-            #print(packet)
-            self.serialGun.write(packet)
+            packet = self.packetBuffer.pop(0) 
+            self.serial.write(packet)
 
-            time.sleep(0.1)
+            time.sleep(0.05)
 
-            #print(self.serialGun.inWaiting())
-            while self.serialGun.inWaiting() > 0:
-                out.append(self.serialGun.read(1))
+            timeoutStart = time.time()
+            communicationError = False
+            while b"".join(out[-5:]) != b"END\r\n":
+                #print(b"".join(out[-5:]))
+                out.append(self.serial.read(1))
+                if time.time() - timeoutStart > 2.0:
+                    self.get_logger().error("Timeout waiting for gun response.")
+                    communicationError = True
+                    break
+
+            if communicationError:
+                self.get_logger().warning("Skipping processing of this gun packet due to communication error.")
+                continue
 
             if out != []:
                 #print("Response:")
                 #print(b"".join(out).decode("utf-8").rstrip("\r\n"))
-                if "AMMO:" in b"".join(out).decode("utf-8"):
-                    try:
-                        ammo = int(b"".join(out).decode("utf-8").split("AMMO:")[1].split("\r")[0])
-                        self.gunFeedbackMsg.ammo = ammo
-                        #self.get_logger().info(f"Ammo: {ammo}")
-                    except ValueError:
-                        self.get_logger().error("Invalid AMMO message:")
-                        self.get_logger().error(b"".join(out).decode("utf-8").split(":")[1].split("\r")[0])
-                        self.get_logger().error(b"".join(out).decode("utf-8"))
-                elif "DIST:" in b"".join(out).decode("utf-8"):
-                    try:
-                        distance = int(b"".join(out).decode("utf-8").split("DIST:")[1].split("\r")[0])
-                        self.gunFeedbackMsg.distance_mm = distance
-                        #self.get_logger().info(f"Distance: {distance} mm")
-                    except ValueError:
-                        self.get_logger().error("Invalid DIST message:")
-                        self.get_logger().error(b"".join(out).decode("utf-8").split(":")[1].split("\r")[0])
-                        self.get_logger().error(b"".join(out).decode("utf-8"))
-                elif "MAG:" in b"".join(out).decode("utf-8"):
-                    magazine = b"".join(out).decode("utf-8").split("MAG:")[1].split("\r")[0].strip()
+                if b"".join(out[0:5]) == b"STAT:":
+                    #self.get_logger().info("Gun status packet received.")
+                    #self.get_logger().info(b"".join(out).decode("utf-8").rstrip("\r\n"))
+                    arrayToProcess = b"".join(out).decode("utf-8").rstrip("\r\n")[5:].split(";")
+                    #print(arrayToProcess)
+                    ammo = int(arrayToProcess[0])
+                    distance = int(arrayToProcess[1])
+                    voltage = int(arrayToProcess[2]) * 0.1  # convert to volts
+                    magazine = arrayToProcess[3]
                     if magazine == "True":
                         magazine = True
                     else:
                         magazine = False
-                    self.gunFeedbackMsg.magazine = magazine
-                    #self.get_logger().info(f"Magazine: {magazine}")
-                elif "VOLT:" in b"".join(out).decode("utf-8"):
-                    voltage = float(b"".join(out).decode("utf-8").split("VOLT:")[1].split("\r")[0])
-                    self.gunFeedbackMsg.voltage = voltage
-                    #self.get_logger().info(f"Voltage: {voltage} V")
                     
+                    self.feedbackMsg.ammo = ammo
+                    self.feedbackMsg.distance_mm = distance
+                    self.feedbackMsg.voltage = voltage
+                    self.feedbackMsg.magazine = magazine
+
+                    self.get_logger().info(f"Gun Feedback - Ammo: {ammo}, Distance: {distance} mm, Voltage: {voltage:.1f} V, Magazine: {magazine}")
+
+
                 else:
                     self.get_logger().error("Received unknown gun packet response: " + b"".join(out).decode("utf-8"))
-            
-                self.gun_feedback_publisher.publish(self.gunFeedbackMsg)
+        
+                self.feedback_publisher.publish(self.feedbackMsg)
             else:
-                pass
-                #print("Empty gun packet response")
+                self.get_logger().error("No response received from gun.")
 
             time.sleep(0.1)  # Give some time for the gun to process the command
 
