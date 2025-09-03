@@ -19,6 +19,7 @@ set(msg_files
 set(srv_files
   "srv/EnableTurret.srv"
   "srv/DisableTurret.srv"
+  "srv/CalibrateTurret.srv"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}
