@@ -46,7 +46,7 @@ class TurretControlNode(Node):
         self.encoderReadCycleTime = 0.05  # seconds, how often to read the encoders
 
         self.turretEnabled = True  # Flag to check if turret is enabled
-        self.movementCooldown = 0.5  # seconds, cooldown time for movement commands
+        self.movementCooldown = 0.1  # seconds, cooldown time for movement commands
 
         self.panIsMove = True
         self.panSteps = 0
@@ -98,7 +98,7 @@ class TurretControlNode(Node):
             rclpy.spin_once(self, timeout_sec=0.05)
 
     def turret_calibrate_callback(self, request, response):
-        self.turretEnabled = True
+        # Use this service to calibrate zero point after disabling the turret and manually adjust the new zero pioint
         packet = servo_packets.enableMotor("pan", 1)
         self.packetBufferPan.append(packet)
         packet = servo_packets.enableMotor("tilt", 1)
@@ -108,10 +108,12 @@ class TurretControlNode(Node):
         packet = servo_packets.zeroMotor("tilt")
         self.packetBufferTilt.append(packet)
 
+        self.turretEnabled = True
+
         return response
 
     def turret_enable_callback(self, request, response):
-        self.turretEnabled = True
+        
         packet = servo_packets.enableMotor("pan", 1)
         self.packetBufferPan.append(packet)
         packet = servo_packets.homeMotor("pan")
@@ -123,10 +125,13 @@ class TurretControlNode(Node):
 
         time.sleep(5)  # wait for homing to finish
 
+        # Athough motors are homing for home command, but zero point is messed up so we need to set it again
         packet = servo_packets.zeroMotor("pan")
         self.packetBufferPan.append(packet)
         packet = servo_packets.zeroMotor("tilt")
         self.packetBufferTilt.append(packet)
+
+        self.turretEnabled = True
 
         return response
 
@@ -139,25 +144,25 @@ class TurretControlNode(Node):
         return response
 
     def request_pan_angle_callback(self, msg):
-        if msg.data > 30:
-            self.get_logger().info("Pan angle request is too high, limiting to 30 degrees.")
-            msg.data = 30.0
-        elif msg.data < -30:
-            self.get_logger().info("Pan angle request is too low, limiting to -30 degrees.")
-            msg.data = -30.0
+        if msg.data > 45:
+            self.get_logger().info("Pan angle request is too high, limiting to 45 degrees.")
+            msg.data = 45.0
+        elif msg.data < -45:
+            self.get_logger().info("Pan angle request is too low, limiting to -45 degrees.")
+            msg.data = -45.0
 
         panDeltaAngle = msg.data - self.panSafeAngle  # convert turret pan angle to motor angle
 
         self.get_logger().info(f"Pan angle request: {msg.data}, current pan angle: {self.panSafeAngle}, delta: {panDeltaAngle}")
 
-        if abs(panDeltaAngle) > 0.1:
+        if abs(panDeltaAngle) > 1.0:
             if self.panIsMove == False:
                 if panDeltaAngle < 0:
                     packet = servo_packets.moveToAngle("pan", "ccw", int(abs(panDeltaAngle) * 4 * 64 / 1.8), 10)
-                    self.deltaPanAngle = -2
+                    self.deltaPanAngle = -1.63
                 else:
                     packet = servo_packets.moveToAngle("pan", "cw", int(abs(panDeltaAngle) * 4 * 64 / 1.8), 10)
-                    self.deltaPanAngle = 2
+                    self.deltaPanAngle = 1.63
                 self.panSafeAngle += panDeltaAngle
                 self.panIsMove = True
                 self.packetBufferPan.append(packet)
@@ -181,14 +186,14 @@ class TurretControlNode(Node):
 
         self.get_logger().info(f"Tilt angle request: {msg.data}, current tilt angle: {self.tiltSafeAngle}, delta: {tiltDeltaAngle}")
 
-        if abs(tiltDeltaAngle) > 0.1:
+        if abs(tiltDeltaAngle) > 1.0:
             if self.tiltIsMove == False:
                 if tiltDeltaAngle < 0:
-                    packet = servo_packets.moveToAngle("tilt", "ccw", int(abs(tiltDeltaAngle) * 5 * 64 / 1.8), 10)
-                    self.deltaTiltAngle = -2
+                    packet = servo_packets.moveToAngle("tilt", "ccw", int(abs(tiltDeltaAngle) * 5 * 64 / 1.8), 12)
+                    self.deltaTiltAngle = -1.63
                 else:
-                    packet = servo_packets.moveToAngle("tilt", "cw", int(abs(tiltDeltaAngle) * 5 * 64 / 1.8), 10)
-                    self.deltaTiltAngle = 2
+                    packet = servo_packets.moveToAngle("tilt", "cw", int(abs(tiltDeltaAngle) * 5 * 64 / 1.8), 12)
+                    self.deltaTiltAngle = 1.63
                 self.tiltSafeAngle += tiltDeltaAngle
                 self.tiltIsMove = True
                 self.packetBufferTilt.append(packet)
@@ -202,15 +207,25 @@ class TurretControlNode(Node):
 
     def publisher_callback(self):
 
+        # Only provide real encoder data if motor is not turning anymore and cooldown time has passed
+        # Note: encoders cannot be read while motor is moving
         if self.panIsMove == False and time.time() - self.panStoppedTime > self.movementCooldown:
             self.panAngleToPublish = self.panAngle / 4.0
         else:
-            self.panAngleToPublish += self.deltaPanAngle
+            # Otherwise estimate the angle based on last known position and movement direction
+            # But only while motor is actually moving, cooldown time is not relevant here
+            if self.panIsMove:
+                self.panAngleToPublish += self.deltaPanAngle
 
+        # Only provide real encoder data if motor is not turning anymore and cooldown time has passed
+        # Note: encoders cannot be read while motor is moving
         if self.tiltIsMove == False and time.time() - self.tiltStoppedTime > self.movementCooldown:
             self.tiltAngleToPublish = self.tiltAngle / 5.0
         else:
-            self.tiltAngleToPublish += self.deltaTiltAngle
+            # Otherwise estimate the angle based on last known position and movement direction
+            # But only while motor is actually moving, cooldown time is not relevant here
+            if self.tiltIsMove:
+                self.tiltAngleToPublish += self.deltaTiltAngle
         
         self.angleMsg.data = self.panAngleToPublish
         self.angleMsg.data = self.tiltAngleToPublish
@@ -441,28 +456,15 @@ class TurretControlNode(Node):
         packet = servo_packets.homeMotor("tilt")
         self.packetBufferTilt.append(packet)
 
-        time.sleep(5)  # wait for homing to finish
+        time.sleep(5)  # wait for homing to finish, don't set new zero point! Except if later I decide to disable turret after stopping this node
 
-        packet = servo_packets.zeroMotor("pan")
-        self.packetBufferPan.append(packet)
-        packet = servo_packets.zeroMotor("tilt")
-        self.packetBufferTilt.append(packet)
-
-        time.sleep(1)  # wait for zeroing to finish
-
-        self.panSafeAngle = self.panAngle / 4.0  # convert motor angle to turret pan angle
-        self.tiltSafeAngle = self.tiltAngle / 5.0  # convert motor angle to turret tilt angle
+        self.panSafeAngle = self.panAngle / 4.0  # convert motor angle to turret pan angle, practically anyway 0 because panIsMove is still True
+        self.tiltSafeAngle = self.tiltAngle / 5.0  # convert motor angle to turret pan angle, practically anyway 0 because panIsMove is still True
 
         self.panIsMove = False
         self.tiltIsMove = False
 
         while rclpy.ok():
-            #self.panIsMove = True
-            #packet = servo_packets.moveToAngle("pan","ccw",int(30 * 4 * 64 / 1.8),5)
-            #self.packetBuffer.append(packet)
-            #self.tiltIsMove = True
-            #packet = servo_packets.moveToAngle("tilt","ccw",int(30 * 5 * 64 / 1.8),5)
-            #self.packetBuffer.append(packet)
             self.get_logger().info(f"Pan angle: {self.panAngle}, Pan steps: {self.panSteps}, Tilt angle: {self.tiltAngle}, Tilt steps: {self.tiltSteps}")
             time.sleep(1)
 
