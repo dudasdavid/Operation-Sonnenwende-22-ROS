@@ -147,7 +147,7 @@
     <parent link="${prefix}gun_link"/>
   </joint>
 
-  <link name='{prefix}gun_ee_link'>
+  <link name="${prefix}gun_ee_link">
     <inertial>
       <mass value="0.1"/>
       <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -175,13 +175,13 @@
   </link>
 
   <!-- Camera-->
-  <joint name="{prefix}rgbd_camera_joint" type="fixed">
+  <joint name="${prefix}rgbd_camera_joint" type="fixed">
     <origin xyz="-0.01 0.085 0.29" rpy="0 -0.174533 0"/>
-    <child link="{prefix}rgbd_camera_link"/>
-    <parent link="{prefix}pan_link"/>
+    <child link="${prefix}rgbd_camera_link"/>
+    <parent link="${prefix}pan_link"/>
   </joint>
 
-  <link name='{prefix}rgbd_camera_link'>
+  <link name='${prefix}rgbd_camera_link'>
     <inertial>
       <mass value="0.1"/>
       <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -208,17 +208,17 @@
 
   </link>
 
-  <gazebo reference="{prefix}rgbd_camera_link">
+  <gazebo reference="${prefix}rgbd_camera_link">
     <material>Gazebo/Red</material>
   </gazebo>
 
-  <joint name="{prefix}rgbd_camera_optical_joint" type="fixed">
+  <joint name="${prefix}rgbd_camera_optical_joint" type="fixed">
     <origin xyz="0 0 0" rpy="-1.5707 0 -1.5707"/>
-    <child link="{prefix}rgbd_camera_link_optical"/>
-    <parent link="{prefix}rgbd_camera_link"/>
+    <child link="${prefix}rgbd_camera_link_optical"/>
+    <parent link="${prefix}rgbd_camera_link"/>
   </joint>
 
-  <link name="{prefix}rgbd_camera_link_optical">
+  <link name="${prefix}rgbd_camera_link_optical">
   </link>
 
   </xacro:macro>
