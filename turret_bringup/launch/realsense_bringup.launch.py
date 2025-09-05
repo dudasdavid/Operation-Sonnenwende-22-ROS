@@ -70,7 +70,7 @@ configurable_parameters = [{'name': 'camera_name',                  'default': '
                            {'name': 'angular_velocity_cov',         'default': '0.01', 'description': "''"},
                            {'name': 'linear_accel_cov',             'default': '0.01', 'description': "''"},
                            {'name': 'diagnostics_period',           'default': '0.0', 'description': 'Rate of publishing diagnostics. 0=Disabled'},
-                           {'name': 'publish_tf',                   'default': 'true', 'description': '[bool] enable/disable publishing static & dynamic TF'},
+                           {'name': 'publish_tf',                   'default': 'false', 'description': '[bool] enable/disable publishing static & dynamic TF'},
                            {'name': 'tf_publish_rate',              'default': '0.0', 'description': '[double] rate in Hz for publishing dynamic TF'},
                            {'name': 'pointcloud.enable',            'default': 'true', 'description': ''},
                            {'name': 'pointcloud.stream_filter',     'default': '2', 'description': 'texture stream for pointcloud'},
@@ -89,7 +89,7 @@ configurable_parameters = [{'name': 'camera_name',                  'default': '
                            {'name': 'hdr_merge.enable',             'default': 'false', 'description': 'hdr_merge filter enablement flag'},
                            {'name': 'wait_for_device_timeout',      'default': '-1.', 'description': 'Timeout for waiting for device to connect (Seconds)'},
                            {'name': 'reconnect_timeout',            'default': '6.', 'description': 'Timeout(seconds) between consequtive reconnection attempts'},
-                           {'name': 'base_frame_id',                'default': 'link', 'description': 'Root frame of the sensors transform tree'},
+                           {'name': 'base_frame_id',                'default': 'rgbd_camera_link', 'description': 'Root frame of the sensors transform tree'},
                           ]
 
 def declare_configurable_parameters(parameters):
