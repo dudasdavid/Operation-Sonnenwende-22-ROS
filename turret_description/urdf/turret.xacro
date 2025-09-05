@@ -141,13 +141,13 @@
     </link>
 
   <!-- Gun EE-->
-  <joint type="fixed" name="gun_ee_joint">
+  <joint name="${prefix}gun_ee_joint" type="fixed">
     <origin xyz="0.17135 -0.099 -0.0375" rpy="0 0 0"/>
-    <child link="gun_ee_link"/>
-    <parent link="gun_link"/>
+    <child link="${prefix}gun_ee_link"/>
+    <parent link="${prefix}gun_link"/>
   </joint>
 
-  <link name='gun_ee_link'>
+  <link name='{prefix}gun_ee_link'>
     <inertial>
       <mass value="0.1"/>
       <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -175,13 +175,13 @@
   </link>
 
   <!-- Camera-->
-  <joint type="fixed" name="camera_joint">
+  <joint name="{prefix}rgbd_camera_joint" type="fixed">
     <origin xyz="-0.01 0.085 0.29" rpy="0 -0.174533 0"/>
-    <child link="camera_link"/>
-    <parent link="pan_link"/>
+    <child link="{prefix}rgbd_camera_link"/>
+    <parent link="{prefix}pan_link"/>
   </joint>
 
-  <link name='camera_link'>
+  <link name='{prefix}rgbd_camera_link'>
     <inertial>
       <mass value="0.1"/>
       <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -199,7 +199,7 @@
       </geometry>
     </collision>
 
-    <visual name='camera_link_visual'>
+    <visual name='rgbd_camera_link_visual'>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
         <box size=".03 .03 .03"/>
@@ -208,17 +208,17 @@
 
   </link>
 
-  <gazebo reference="camera_link">
+  <gazebo reference="{prefix}rgbd_camera_link">
     <material>Gazebo/Red</material>
   </gazebo>
 
-  <joint type="fixed" name="camera_optical_joint">
+  <joint name="{prefix}rgbd_camera_optical_joint" type="fixed">
     <origin xyz="0 0 0" rpy="-1.5707 0 -1.5707"/>
-    <child link="camera_link_optical"/>
-    <parent link="camera_link"/>
+    <child link="{prefix}rgbd_camera_link_optical"/>
+    <parent link="{prefix}rgbd_camera_link"/>
   </joint>
 
-  <link name="camera_link_optical">
+  <link name="{prefix}rgbd_camera_link_optical">
   </link>
 
   </xacro:macro>

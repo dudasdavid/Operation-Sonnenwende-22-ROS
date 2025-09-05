@@ -15,7 +15,7 @@
 
   <!-- Used for fixing robot to the UR3e -->
   <joint name="world_fixed" type="fixed">
-    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <origin xyz="0 0 0.5" rpy="0 0 0"/>
     <parent link="world"/>
     <child link="$(arg prefix)turret_base"/>
   </joint>
