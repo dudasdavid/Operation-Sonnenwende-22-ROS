@@ -5,9 +5,28 @@ from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, Comm
 from launch_ros.substitutions import FindPackageShare
 from launch_ros.actions import Node
 from launch.conditions import IfCondition
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
-    
+
+    pkg_turret_bringup = get_package_share_directory('turret_bringup')
+
+    realsense_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(pkg_turret_bringup, 'launch', 'realsense_bringup.launch.py'),
+        )
+    )
+
+    # Relay node to republish /rgbd/color/camera_info to /rgbd/camera/image_raw/camera_info
+    relay_camera_info_node = Node(
+            package='topic_tools',
+            executable='relay',
+            name='relay_rgbd_color_camera_info',
+            output='screen',
+            arguments=['rgbd/color/camera_info', 'rgbd/color/image_raw/camera_info']
+        )
+
     turret_controller = Node(
             package='turret_control_py',
             executable='turret_controller',
@@ -24,6 +43,8 @@ def generate_launch_description():
 
     launchDescriptionObject = LaunchDescription()
 
+    launchDescriptionObject.add_action(realsense_launch)
+    launchDescriptionObject.add_action(relay_camera_info_node)
     launchDescriptionObject.add_action(turret_controller)
     launchDescriptionObject.add_action(gun_controller)
 
