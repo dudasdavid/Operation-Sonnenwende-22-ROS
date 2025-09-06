@@ -37,7 +37,7 @@ class NerfTrajectoryNode(Node):
         self.declare_parameter('gravity', 9.80665)            # m/s^2
 
         # Integration controls
-        self.declare_parameter('dt', 0.01)                    # s
+        self.declare_parameter('dt', 0.02)                    # s
         self.declare_parameter('max_time', 5.0)               # s
         self.declare_parameter('ground_z', 0.0)               # m, ground plane height in world_frame
 
@@ -82,7 +82,7 @@ class NerfTrajectoryNode(Node):
         self.color = [float(x) for x in self.get_parameter('color_rgba').value]
 
         # ---------------- TF setup ----------------
-        self.tf_buffer = tf2_ros.Buffer(cache_time=Duration(seconds=5))
+        self.tf_buffer = tf2_ros.Buffer(cache_time=Duration(seconds=0.5))
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
 
         # ---------------- Publishers/Subscribers ----------------
@@ -95,7 +95,7 @@ class NerfTrajectoryNode(Node):
         self._dirty = True  # compute once at startup
 
         # Timer to (re)publish if dirty (and to follow TF changes smoothly)
-        self.timer = self.create_timer(0.1, self.timer_cb)  # 10 Hz
+        self.timer = self.create_timer(0.2, self.timer_cb)  # 10 Hz
 
         self.get_logger().info('NerfTrajectoryNode ready.')
 
@@ -143,7 +143,7 @@ class NerfTrajectoryNode(Node):
         """
         try:
             now = self.get_clock().now() - Duration(seconds=0.5)
-            tf = self.tf_buffer.lookup_transform(self.world_frame, self.link_name, now, timeout=Duration(seconds=0.1))
+            tf = self.tf_buffer.lookup_transform(self.world_frame, self.link_name, rclpy.time.Time(), timeout=Duration(seconds=0.1))
         except TransformException as ex:
             self.get_logger().warn(f'Cannot get TF {self.world_frame} <- {self.link_name}: {ex}')
             return None
