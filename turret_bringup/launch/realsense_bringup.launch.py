@@ -20,7 +20,7 @@ import launch_ros.actions
 from launch.actions import DeclareLaunchArgument, OpaqueFunction, LogInfo
 from launch.substitutions import LaunchConfiguration
 
-# TODO: decrease camera stream resolution, enable sensors, SENSOR_DATA QoS, 
+# TODO: enable sensors, SENSOR_DATA QoS, 
 
 configurable_parameters = [{'name': 'camera_name',                  'default': 'rgbd', 'description': 'camera unique name'},
                            {'name': 'camera_namespace',             'default': '', 'description': 'namespace for camera'},
