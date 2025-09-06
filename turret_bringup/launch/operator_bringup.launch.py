@@ -106,7 +106,7 @@ def generate_launch_description():
             name='nerf_trajectory',
             output='screen',
             parameters=[{
-                'world_frame': 'world',
+                'world_frame': 'turret_base',
                 'link_name': 'gun_ee_link',
                 'pan_joint_name': 'pan_joint',
                 'tilt_joint_name': 'tilt_joint',
@@ -114,7 +114,7 @@ def generate_launch_description():
                 'mass': 0.0016,
                 'drag_coefficient': 1.1,
                 'cross_section_area': 3.14e-4,
-                'ground_z': 0.0,
+                'ground_z': -1.0,
                 'muzzle_offset_xyz': [0.0, 0.0, 0.0],
                 'barrel_axis': 'x',
             }]
@@ -125,7 +125,7 @@ def generate_launch_description():
             executable='aiming_marker',
             name='aiming_marker',
             parameters=[{
-                'frame_id': 'world',
+                'frame_id': 'turret_base',
                 'topic': 'target_pose',
                 'scale': 0.3,
                 'initial_xyz': [1.0, 0.0, 0.0],
