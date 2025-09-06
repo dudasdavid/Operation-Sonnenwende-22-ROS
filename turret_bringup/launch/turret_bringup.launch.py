@@ -18,15 +18,6 @@ def generate_launch_description():
         )
     )
 
-    # Relay node to republish /rgbd/color/camera_info to /rgbd/camera/image_raw/camera_info
-    relay_camera_info_node = Node(
-            package='topic_tools',
-            executable='relay',
-            name='relay_rgbd_color_camera_info',
-            output='screen',
-            arguments=['rgbd/color/camera_info', 'rgbd/color/image_raw/camera_info']
-        )
-
     turret_controller = Node(
             package='turret_control_py',
             executable='turret_controller',
@@ -44,7 +35,6 @@ def generate_launch_description():
     launchDescriptionObject = LaunchDescription()
 
     launchDescriptionObject.add_action(realsense_launch)
-    launchDescriptionObject.add_action(relay_camera_info_node)
     launchDescriptionObject.add_action(turret_controller)
     launchDescriptionObject.add_action(gun_controller)
 

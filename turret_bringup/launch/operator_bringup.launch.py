@@ -75,6 +75,31 @@ def generate_launch_description():
         ]
     )
 
+    # Relay node to republish /rgbd/color/camera_info to /rgbd/camera/image_raw/camera_info
+    relay_color_camera_info = Node(
+            package='topic_tools',
+            executable='relay',
+            name='relay_rgbd_color_camera_info',
+            output='screen',
+            arguments=['rgbd/color/camera_info', 'rgbd/color/image_raw/camera_info']
+        )
+
+    relay_infra_camera_info = Node(
+            package='topic_tools',
+            executable='relay',
+            name='relay_rgbd_infra_camera_info',
+            output='screen',
+            arguments=['rgbd/infra1/camera_info', 'rgbd/infra1/image_rect_raw/camera_info']
+        )
+    
+    relay_depth_camera_info = Node(
+            package='topic_tools',
+            executable='relay',
+            name='relay_rgbd_depth_camera_info',
+            output='screen',
+            arguments=['rgbd/aligned_depth_to_color/camera_info', 'rgbd/aligned_depth_to_color/image_raw/camera_info']
+        )
+
     ballistic_marker = Node(
             package='turret_control_py',
             executable='ballistic_marker',
@@ -118,6 +143,9 @@ def generate_launch_description():
     launchDescriptionObject.add_action(jsp_gui_node)
     launchDescriptionObject.add_action(rviz_node)
     launchDescriptionObject.add_action(robot_state_publisher_node)
+    launchDescriptionObject.add_action(relay_color_camera_info)
+    launchDescriptionObject.add_action(relay_infra_camera_info)
+    launchDescriptionObject.add_action(relay_depth_camera_info)
     launchDescriptionObject.add_action(ballistic_marker)
     launchDescriptionObject.add_action(aiming_marker)
 
