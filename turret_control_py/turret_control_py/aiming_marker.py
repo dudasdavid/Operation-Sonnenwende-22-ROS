@@ -30,11 +30,12 @@ class FreeMarker3DoF(Node):
         self.server = InteractiveMarkerServer(self, 'free_marker_server')
 
         self.last_click = time.time()
+        self.publish_time = time.time()
 
         int_marker = InteractiveMarker()
         int_marker.header.frame_id = self.frame_id
         int_marker.name = self.marker_name
-        int_marker.description = 'Drag (XY)'
+        int_marker.description = 'AIM'
         int_marker.scale = self.scale
         int_marker.pose.position.x = ip[0]
         int_marker.pose.position.y = ip[1]
@@ -78,9 +79,9 @@ class FreeMarker3DoF(Node):
         move_z.interaction_mode = InteractiveMarkerControl.MOVE_AXIS
         move_z.orientation.w = 1.0
         move_z.orientation.x = 0.0
-        move_z.orientation.y = 0.0
-        move_z.orientation.z = 1.0   # axis = Z
-        #int_marker.controls.append(move_z)
+        move_z.orientation.y = 1.0
+        move_z.orientation.z = 0.0   # axis = Z
+        int_marker.controls.append(move_z)
 
         self.server.insert(int_marker)
         self.server.setCallback(int_marker.name, self.feedback_cb)  # optional: limit with feedback_type=
@@ -95,7 +96,8 @@ class FreeMarker3DoF(Node):
     def feedback_cb(self, feedback):
 
         if feedback.event_type in (InteractiveMarkerFeedback.BUTTON_CLICK, InteractiveMarkerFeedback.MOUSE_UP):
-            if time.time() - self.last_click < 0.5:
+            # detect double click and avoid multiple publishing on the 3rd, 4th, etc click
+            if time.time() - self.last_click < 0.5 and time.time() - self.publish_time > 2.0:
                 ps = PoseStamped()
                 ps.header.frame_id = feedback.header.frame_id
                 ps.header.stamp = self.get_clock().now().to_msg()
@@ -106,6 +108,7 @@ class FreeMarker3DoF(Node):
                     ps.pose.orientation.z = 0.0
                     ps.pose.orientation.w = 1.0
                 self.pub_pose.publish(ps)
+                self.publish_time = time.time()
 
             self.last_click = time.time()
 
