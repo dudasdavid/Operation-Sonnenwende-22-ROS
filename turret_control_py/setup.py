@@ -24,6 +24,7 @@ setup(
             'gun_controller = turret_control_py.gun_controller:main',
             'ballistic_marker = turret_control_py.ballistic_marker:main',
             'aiming_marker = turret_control_py.aiming_marker:main',
+            'shooting_marker = turret_control_py.shooting_marker:main',
             'servo_packets = turret_control_py.servo_packets:main',
             'auto_aim = turret_control_py.auto_aim:main',
         ],
