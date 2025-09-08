@@ -110,7 +110,7 @@ def generate_launch_description():
             'link_name': 'gun_ee_link',
             'pan_joint_name': 'pan_joint',
             'tilt_joint_name': 'tilt_joint',
-            'muzzle_speed': 9.0,
+            'muzzle_speed': 20.0,
             'mass': 0.0016,
             'drag_coefficient': 1.1,
             'cross_section_area': 3.14e-4,
@@ -133,6 +133,15 @@ def generate_launch_description():
         }]
     )
 
+    shooting_marker = Node(
+        package='turret_control_py',
+        executable='shooting_marker',
+        name='shooting_marker',
+        parameters=[{
+            'frame_id': 'gun_ee_link',
+        }]
+    )
+
     auto_aim = Node(
         package='turret_control_py',
         executable='auto_aim',
@@ -140,7 +149,7 @@ def generate_launch_description():
         parameters=[{
             'target_pose_topic': '/target_pose',
             'ballistics': {
-                'muzzle_speed': 9.0,
+                'muzzle_speed': 20.0,
                 'mass': 0.0016,
                 'drag_coefficient': 1.1,
                 'cross_section_area': 3.14e-4,
@@ -165,6 +174,7 @@ def generate_launch_description():
     launchDescriptionObject.add_action(relay_depth_camera_info)
     launchDescriptionObject.add_action(ballistic_marker)
     launchDescriptionObject.add_action(aiming_marker)
+    launchDescriptionObject.add_action(shooting_marker)
     launchDescriptionObject.add_action(auto_aim)
 
     return launchDescriptionObject
