@@ -25,6 +25,7 @@ setup(
             'ballistic_marker = turret_control_py.ballistic_marker:main',
             'aiming_marker = turret_control_py.aiming_marker:main',
             'servo_packets = turret_control_py.servo_packets:main',
+            'auto_aim = turret_control_py.auto_aim:main',
         ],
     },
 )
