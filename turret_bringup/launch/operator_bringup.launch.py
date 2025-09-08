@@ -77,59 +77,68 @@ def generate_launch_description():
 
     # Relay node to republish /rgbd/color/camera_info to /rgbd/camera/image_raw/camera_info
     relay_color_camera_info = Node(
-            package='topic_tools',
-            executable='relay',
-            name='relay_rgbd_color_camera_info',
-            output='screen',
-            arguments=['rgbd/color/camera_info', 'rgbd/color/image_raw/camera_info']
-        )
+        package='topic_tools',
+        executable='relay',
+        name='relay_rgbd_color_camera_info',
+        output='screen',
+        arguments=['rgbd/color/camera_info', 'rgbd/color/image_raw/camera_info']
+    )
 
     relay_infra_camera_info = Node(
-            package='topic_tools',
-            executable='relay',
-            name='relay_rgbd_infra_camera_info',
-            output='screen',
-            arguments=['rgbd/infra1/camera_info', 'rgbd/infra1/image_rect_raw/camera_info']
-        )
+        package='topic_tools',
+        executable='relay',
+        name='relay_rgbd_infra_camera_info',
+        output='screen',
+        arguments=['rgbd/infra1/camera_info', 'rgbd/infra1/image_rect_raw/camera_info']
+    )
     
     relay_depth_camera_info = Node(
-            package='topic_tools',
-            executable='relay',
-            name='relay_rgbd_depth_camera_info',
-            output='screen',
-            arguments=['rgbd/aligned_depth_to_color/camera_info', 'rgbd/aligned_depth_to_color/image_raw/camera_info']
-        )
+        package='topic_tools',
+        executable='relay',
+        name='relay_rgbd_depth_camera_info',
+        output='screen',
+        arguments=['rgbd/aligned_depth_to_color/camera_info', 'rgbd/aligned_depth_to_color/image_raw/camera_info']
+    )
 
     ballistic_marker = Node(
-            package='turret_control_py',
-            executable='ballistic_marker',
-            name='nerf_trajectory',
-            output='screen',
-            parameters=[{
-                'world_frame': 'turret_base',
-                'link_name': 'gun_ee_link',
-                'pan_joint_name': 'pan_joint',
-                'tilt_joint_name': 'tilt_joint',
-                'muzzle_speed': 9.0,
-                'mass': 0.0016,
-                'drag_coefficient': 1.1,
-                'cross_section_area': 3.14e-4,
-                'ground_z': -1.0,
-                'muzzle_offset_xyz': [0.0, 0.0, 0.0],
-                'barrel_axis': 'x',
-            }]
-        )
+        package='turret_control_py',
+        executable='ballistic_marker',
+        name='nerf_trajectory',
+        output='screen',
+        parameters=[{
+            'world_frame': 'turret_base',
+            'link_name': 'gun_ee_link',
+            'pan_joint_name': 'pan_joint',
+            'tilt_joint_name': 'tilt_joint',
+            'muzzle_speed': 9.0,
+            'mass': 0.0016,
+            'drag_coefficient': 1.1,
+            'cross_section_area': 3.14e-4,
+            'ground_z': -1.0,
+            'muzzle_offset_xyz': [0.0, 0.0, 0.0],
+            'barrel_axis': 'x',
+        }]
+    )
     
     aiming_marker = Node(
+        package='turret_control_py',
+        executable='aiming_marker',
+        name='aiming_marker',
+        parameters=[{
+            'frame_id': 'turret_base',
+            'topic': 'target_pose',
+            'scale': 0.3,
+            'initial_xyz': [1.0, 0.0, 0.0],
+            'zero_orientation_on_publish': True,
+        }]
+    )
+
+    auto_aim = Node(
             package='turret_control_py',
-            executable='aiming_marker',
-            name='aiming_marker',
+            executable='auto_aim',
+            name='auto_aim',
             parameters=[{
-                'frame_id': 'turret_base',
-                'topic': 'target_pose',
-                'scale': 0.3,
-                'initial_xyz': [1.0, 0.0, 0.0],
-                'zero_orientation_on_publish': True,
+                'target_pose_topic': '/target_pose'
             }]
         )
 
@@ -148,5 +157,6 @@ def generate_launch_description():
     launchDescriptionObject.add_action(relay_depth_camera_info)
     launchDescriptionObject.add_action(ballistic_marker)
     launchDescriptionObject.add_action(aiming_marker)
+    launchDescriptionObject.add_action(auto_aim)
 
     return launchDescriptionObject
