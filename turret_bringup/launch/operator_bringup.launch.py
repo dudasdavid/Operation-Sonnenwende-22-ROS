@@ -134,13 +134,21 @@ def generate_launch_description():
     )
 
     auto_aim = Node(
-            package='turret_control_py',
-            executable='auto_aim',
-            name='auto_aim',
-            parameters=[{
-                'target_pose_topic': '/target_pose'
-            }]
-        )
+        package='turret_control_py',
+        executable='auto_aim',
+        name='auto_aim',
+        parameters=[{
+            'target_pose_topic': '/target_pose',
+            'ballistics': {
+                'muzzle_speed': 9.0,
+                'mass': 0.0016,
+                'drag_coefficient': 1.1,
+                'cross_section_area': 3.14e-4,
+                'air_density': 1.225,
+                'gravity': 9.80665
+            }
+        }]
+    )
 
     launchDescriptionObject = LaunchDescription()
 
