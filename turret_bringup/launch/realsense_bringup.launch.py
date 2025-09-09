@@ -63,8 +63,8 @@ configurable_parameters = [{'name': 'camera_name',                  'default': '
                            {'name': 'enable_sync',                  'default': 'true', 'description': "'enable sync mode'"},
                            {'name': 'depth_module.inter_cam_sync_mode',               'default': "0", 'description': '[0-Default, 1-Master, 2-Slave]'},
                            {'name': 'enable_rgbd',                  'default': 'true', 'description': "'enable rgbd topic'"},
-                           {'name': 'enable_gyro',                  'default': 'false', 'description': "'enable gyro stream'"},
-                           {'name': 'enable_accel',                 'default': 'false', 'description': "'enable accel stream'"},
+                           {'name': 'enable_gyro',                  'default': 'true', 'description': "'enable gyro stream'"},
+                           {'name': 'enable_accel',                 'default': 'true', 'description': "'enable accel stream'"},
                            {'name': 'gyro_fps',                     'default': '200', 'description': "''"},
                            {'name': 'enable_motion',                'default': 'false', 'description': "'enable motion stream (IMU) for DDS devices'"},
                            {'name': 'accel_fps',                    'default': '63', 'description': "''"},
@@ -96,6 +96,8 @@ configurable_parameters = [{'name': 'camera_name',                  'default': '
                            {'name': 'rgbd.color.image_raw.compressed.jpeg_quality',                      'default': '20', 'description': 'jpeg quality of rgb stream'},
                            {'name': 'rgbd.infra1.image_rect_raw.compressed.jpeg_quality',                'default': '15', 'description': 'jpeg quality of infra stream'},
                            {'name': 'rgbd.aligned_depth_to_color.image_raw.compressedDepth.png_quality', 'default': '1', 'description': 'png quality of depth stream, 0 best quality, 9 more cumputing overhead'},
+                           {'name': 'accel_qos',                'default': 'SYSTEM_DEFAULT', 'description': 'IMU QoS profile [SYSTEM_DEFAULT|SENSOR_DATA]'},
+                           {'name': 'gyro_qos',                'default': 'SYSTEM_DEFAULT', 'description': 'IMU QoS profile [SYSTEM_DEFAULT|SENSOR_DATA]'},
                           ]
 
 def declare_configurable_parameters(parameters):
