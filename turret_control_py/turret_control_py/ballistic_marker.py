@@ -38,7 +38,7 @@ class NerfTrajectoryNode(Node):
 
         # Integration controls
         self.declare_parameter('dt', 0.02)                    # s
-        self.declare_parameter('max_time', 5.0)               # s
+        self.declare_parameter('max_flight_time', 5.0)               # s
         self.declare_parameter('ground_z', 0.0)               # m, ground plane height in world_frame
 
         # Geometry
@@ -69,7 +69,7 @@ class NerfTrajectoryNode(Node):
         self.rho = float(self.get_parameter('air_density').value)
         self.g = float(self.get_parameter('gravity').value)
         self.dt = float(self.get_parameter('dt').value)
-        self.max_time = float(self.get_parameter('max_time').value)
+        self.max_time = float(self.get_parameter('max_flight_time').value)
         self.ground_z = float(self.get_parameter('ground_z').value)
         self.barrel_axis = str(self.get_parameter('barrel_axis').value).lower()
         self.muzzle_offset = [float(x) for x in self.get_parameter('muzzle_offset_xyz').value]

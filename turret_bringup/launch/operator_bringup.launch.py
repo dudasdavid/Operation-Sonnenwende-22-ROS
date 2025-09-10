@@ -36,6 +36,18 @@ def generate_launch_description():
         description='Name of the URDF description to load'
     )
 
+    ballistic_config = PathJoinSubstitution([
+        pkg_description,
+        "config",
+        "projectile_ballistics.yaml"
+    ])
+
+    joint_limits_config = PathJoinSubstitution([
+        pkg_description,
+        "config",
+        "joint_limits.yaml"
+    ])
+
     # Define the path to your URDF or Xacro file
     urdf_file_path = PathJoinSubstitution([
         pkg_description,  # Replace with your package name
@@ -105,19 +117,7 @@ def generate_launch_description():
         executable='ballistic_marker',
         name='nerf_trajectory',
         output='screen',
-        parameters=[{
-            'world_frame': 'turret_base',
-            'link_name': 'gun_ee_link',
-            'pan_joint_name': 'pan_joint',
-            'tilt_joint_name': 'tilt_joint',
-            'muzzle_speed': 20.0,
-            'mass': 0.0016,
-            'drag_coefficient': 1.1,
-            'cross_section_area': 3.14e-4,
-            'ground_z': -1.0,
-            'muzzle_offset_xyz': [0.0, 0.0, 0.0],
-            'barrel_axis': 'x',
-        }]
+        parameters=[ballistic_config]
     )
     
     aiming_marker = Node(
@@ -146,17 +146,7 @@ def generate_launch_description():
         package='turret_control_py',
         executable='auto_aim',
         name='auto_aim',
-        parameters=[{
-            'target_pose_topic': '/target_pose',
-            'ballistics': {
-                'muzzle_speed': 20.0,
-                'mass': 0.0016,
-                'drag_coefficient': 1.1,
-                'cross_section_area': 3.14e-4,
-                'air_density': 1.225,
-                'gravity': 9.80665
-            }
-        }]
+        parameters=[ballistic_config, joint_limits_config]
     )
 
     launchDescriptionObject = LaunchDescription()
