@@ -20,6 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'object_detection = turret_image_processing_py.object_detection:main',
         ],
     },
 )
