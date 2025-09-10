@@ -2,6 +2,29 @@ import struct
 from sensor_msgs.msg import CompressedImage
 import numpy as np
 import cv2
+import random
+
+'''
+Classes:
+0: 'person', 1: 'bicycle', 2: 'car', 3: 'motorcycle', 4: 'airplane',
+5: 'bus', 6: 'train', 7: 'truck', 8: 'boat', 9: 'traffic light',
+10: 'fire hydrant', 11: 'stop sign', 12: 'parking meter', 13: 'bench',
+14: 'bird', 15: 'cat', 16: 'dog', 17: 'horse', 18: 'sheep', 19: 'cow',
+20: 'elephant', 21: 'bear', 22: 'zebra', 23: 'giraffe', 24: 'backpack',
+25: 'umbrella', 26: 'handbag', 27: 'tie', 28: 'suitcase', 29: 'frisbee',
+30: 'skis', 31: 'snowboard', 32: 'sports ball', 33: 'kite',
+34: 'baseball bat', 35: 'baseball glove', 36: 'skateboard',
+37: 'surfboard', 38: 'tennis racket', 39: 'bottle', 40: 'wine glass',
+41: 'cup', 42: 'fork', 43: 'knife', 44: 'spoon', 45: 'bowl', 46: 'banana',
+47: 'apple', 48: 'sandwich', 49: 'orange', 50: 'broccoli', 51: 'carrot',
+52: 'hot dog', 53: 'pizza', 54: 'donut', 55: 'cake', 56: 'chair',
+57: 'couch', 58: 'potted plant', 59: 'bed', 60: 'dining table',
+61: 'toilet', 62: 'tv', 63: 'laptop', 64: 'mouse', 65: 'remote',
+66: 'keyboard', 67: 'cell phone', 68: 'microwave', 69: 'oven',
+70: 'toaster', 71: 'sink', 72: 'refrigerator', 73: 'book', 74: 'clock',
+75: 'vase', 76: 'scissors', 77: 'teddy bear', 78: 'hair drier',
+79: 'toothbrush'}
+'''
 
 def on_depth(msg: CompressedImage):
     # Parse format, e.g. "32FC1; compressedDepth png"
@@ -44,3 +67,49 @@ def on_depth(msg: CompressedImage):
         raise RuntimeError(f"Unexpected image encoding: {img_encoding}")
     
     return depth_m
+
+def generate_random_colors(length, fix_seed = False):
+    colors = []
+
+    if fix_seed:
+        random.seed(69)
+
+    for i in range(0, length):
+        colors.append((random.randint(0,255),random.randint(0,255),random.randint(0,255)))
+
+    return colors
+
+def srgb_to_linear(c):
+    c = c/255.0
+    return np.where(c <= 0.04045, c/12.92, ((c+0.055)/1.055)**2.4)
+
+def best_text_color(bg):  # bg = (B,G,R) or (R,G,B) -> treat as RGB below
+    r, g, b = bg  # if you have BGR, swap: r,g,b = bg[2],bg[1],bg[0]
+    R, G, B = srgb_to_linear(np.array([r, g, b], dtype=float))
+    L = 0.2126*R + 0.7152*G + 0.0722*B          # relative luminance
+    # Contrast ratio vs black (L=0) and white (L=1)
+    contrast_black = (L + 0.05) / 0.05
+    contrast_white = 1.05 / (L + 0.05)
+    return (0, 0, 0) if contrast_black >= contrast_white else (255, 255, 255)
+
+def decode_class(cls):
+    classes_dict = {0: 'person', 1: 'bicycle', 2: 'car', 3: 'motorcycle', 4: 'airplane',
+                    5: 'bus', 6: 'train', 7: 'truck', 8: 'boat', 9: 'traffic light',
+                    10: 'fire hydrant', 11: 'stop sign', 12: 'parking meter', 13: 'bench',
+                    14: 'bird', 15: 'cat', 16: 'dog', 17: 'horse', 18: 'sheep', 19: 'cow',
+                    20: 'elephant', 21: 'bear', 22: 'zebra', 23: 'giraffe', 24: 'backpack',
+                    25: 'umbrella', 26: 'handbag', 27: 'tie', 28: 'suitcase', 29: 'frisbee',
+                    30: 'skis', 31: 'snowboard', 32: 'sports ball', 33: 'kite',
+                    34: 'baseball bat', 35: 'baseball glove', 36: 'skateboard',
+                    37: 'surfboard', 38: 'tennis racket', 39: 'bottle', 40: 'wine glass',
+                    41: 'cup', 42: 'fork', 43: 'knife', 44: 'spoon', 45: 'bowl', 46: 'banana',
+                    47: 'apple', 48: 'sandwich', 49: 'orange', 50: 'broccoli', 51: 'carrot',
+                    52: 'hot dog', 53: 'pizza', 54: 'donut', 55: 'cake', 56: 'chair',
+                    57: 'couch', 58: 'potted plant', 59: 'bed', 60: 'dining table',
+                    61: 'toilet', 62: 'tv', 63: 'laptop', 64: 'mouse', 65: 'remote',
+                    66: 'keyboard', 67: 'cell phone', 68: 'microwave', 69: 'oven',
+                    70: 'toaster', 71: 'sink', 72: 'refrigerator', 73: 'book', 74: 'clock',
+                    75: 'vase', 76: 'scissors', 77: 'teddy bear', 78: 'hair drier',
+                    79: 'toothbrush'}
+    
+    return classes_dict[cls]

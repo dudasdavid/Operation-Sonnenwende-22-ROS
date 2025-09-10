@@ -38,6 +38,21 @@ class ImageSubscriber(Node):
             1  # Queue size of 1
         )
 
+        self.declare_parameter('inference_width', 448) # 448, 864
+        self.declare_parameter('inference_height', 256) # 256, 480
+        self.declare_parameter('classes', []) # [0, 15] for cats and persons
+        self.declare_parameter('confidence', 0.1)
+
+        self.inference_width = int(self.get_parameter('inference_width').value)
+        self.inference_height = int(self.get_parameter('inference_height').value)
+        self.classes = list(self.get_parameter('classes').value)
+        self.confidence = float(self.get_parameter('confidence').value)
+        self.inference_width_ratio = None
+        self.inference_height_ratio = None
+
+        # Always generate the same golors for the first n base IDs,then we'll keep generating random colors
+        self.id_colors = sup_lib.generate_random_colors(20, fix_seed=True)
+
         pkg_image_processing_models = get_package_share_directory('turret_image_processing_models')
         model_path = os.path.join(pkg_image_processing_models, 'yolo11', 'yolo11n.pt'),
 
@@ -129,37 +144,67 @@ class ImageSubscriber(Node):
 
         height, width = img.shape[:2]
 
-        if height != 480 or width != 864:
-            dim = (864, 480)
-            img = cv2.resize(img, dim, interpolation=cv2.INTER_AREA)
+        if height != self.inference_height or width != self.inference_width:
+            dim = (self.inference_width, self.inference_height)
+            self.inference_height_ratio = float(height) / self.inference_height
+            self.inference_width_ratio = float(width) / self.inference_width
+            img_resized = cv2.resize(img, dim, interpolation=cv2.INTER_AREA)
 
-        '''
-        Classes:
-        0: 'person', 1: 'bicycle', 2: 'car', 3: 'motorcycle', 4: 'airplane',
-        5: 'bus', 6: 'train', 7: 'truck', 8: 'boat', 9: 'traffic light',
-        10: 'fire hydrant', 11: 'stop sign', 12: 'parking meter', 13: 'bench',
-        14: 'bird', 15: 'cat', 16: 'dog', 17: 'horse', 18: 'sheep', 19: 'cow',
-        20: 'elephant', 21: 'bear', 22: 'zebra', 23: 'giraffe', 24: 'backpack',
-        25: 'umbrella', 26: 'handbag', 27: 'tie', 28: 'suitcase', 29: 'frisbee',
-        30: 'skis', 31: 'snowboard', 32: 'sports ball', 33: 'kite',
-        34: 'baseball bat', 35: 'baseball glove', 36: 'skateboard',
-        37: 'surfboard', 38: 'tennis racket', 39: 'bottle', 40: 'wine glass',
-        41: 'cup', 42: 'fork', 43: 'knife', 44: 'spoon', 45: 'bowl', 46: 'banana',
-        47: 'apple', 48: 'sandwich', 49: 'orange', 50: 'broccoli', 51: 'carrot',
-        52: 'hot dog', 53: 'pizza', 54: 'donut', 55: 'cake', 56: 'chair',
-        57: 'couch', 58: 'potted plant', 59: 'bed', 60: 'dining table',
-        61: 'toilet', 62: 'tv', 63: 'laptop', 64: 'mouse', 65: 'remote',
-        66: 'keyboard', 67: 'cell phone', 68: 'microwave', 69: 'oven',
-        70: 'toaster', 71: 'sink', 72: 'refrigerator', 73: 'book', 74: 'clock',
-        75: 'vase', 76: 'scissors', 77: 'teddy bear', 78: 'hair drier',
-        79: 'toothbrush'}
-        '''
+        results = self.model.track(
+            img_resized,
+            persist = True,
+            conf=self.confidence,
+            imgsz = (self.inference_height, self.inference_width),
+            classes=self.classes if self.classes else None
+        )
 
-        results = self.model.track(img, persist = True, conf=0.1, imgsz = (480, 864))#, classes = [0,15])
-        #print(results[0].boxes.cls) # cls, conf, id, xyxy, xywh
-        annotated_img = results[0].plot()
-        
+        annotated_img = self.post_process_image(img, self.latest_depth_frame, results[0].boxes, self.inference_width_ratio, self.inference_height_ratio)
+        #annotated_img = results[0].plot()
+
         return annotated_img
+
+    def post_process_image(self, img, depth, boxes, width_ratio, height_ratio):
+        cls = boxes.cls
+        conf = boxes.conf
+        ids = boxes.id
+        xyxy = boxes.xyxy
+        xywh = boxes.xywh
+
+        result = img.copy()
+
+        if ids == None:
+            return result
+
+        if len(ids) == 0:
+            return result
+
+        print(ids)
+
+        for i, id_tensor in enumerate(ids):
+            id = int(id_tensor.item())
+            cl = int(cls[i].item())
+            cf = float(conf[i].item())
+            # if id is higher than pregenerated id color list we add new random colors to the list
+            if id > len(self.id_colors)-1:
+                self.id_colors+=sup_lib.generate_random_colors(id-len(self.id_colors)+1, fix_seed=False)
+            cv2.rectangle(result, (int(xyxy[i][0]*width_ratio), int(xyxy[i][1]*height_ratio)), (int(xyxy[i][2]*width_ratio), int(xyxy[i][3]*height_ratio)), self.id_colors[id], 3)
+
+            label_text = f"ID: {id} - {sup_lib.decode_class(cl)} - {cf*100:.3}%"
+            label_size = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 1)[0]
+            label_left = int(xyxy[i][0]*width_ratio)
+            label_top = int(xyxy[i][1]*height_ratio) - label_size[1]
+            if (label_top < 1):
+                label_top = 1
+            label_right = label_left + label_size[0]
+            label_bottom = label_top + label_size[1] - 3
+            cv2.rectangle(result, (label_left - 1, label_top - 6), (label_right + 1, label_bottom + 1),
+                        self.id_colors[id], -1)
+            cv2.putText(result, label_text, (label_left, label_bottom), cv2.FONT_HERSHEY_SIMPLEX, 0.6, sup_lib.best_text_color(self.id_colors[id])[::-1], 1, cv2.LINE_AA)
+        
+
+        return result
+
+
 
     def stop(self):
         """Stop the node and the spin thread."""
