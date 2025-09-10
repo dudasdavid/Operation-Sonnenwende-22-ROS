@@ -1,0 +1,25 @@
+# shared ballistics parameters
+/**:
+  ros__parameters:
+    muzzle_speed: 20.0          # m/s
+    mass: 0.0016                # kg
+    drag_coefficient: 1.1       # unitless
+    cross_section_area: 3.14e-4 # m^2
+    air_density: 1.225          # kg/m^3
+    gravity: 9.80665            # m/s^2
+    max_flight_time: 5.0        # s
+    dt: 0.02                    # s (simulation step time)
+
+auto_aim:
+  ros__parameters:
+    target_pose_topic: target_pose # in turret_base refernce frame
+
+nerf_trajectory:
+  ros__parameters:
+    world_frame: turret_base
+    link_name: gun_ee_link
+    pan_joint_name: pan_joint
+    tilt_joint_name: tilt_joint
+    ground_z: -1.0 # m - this should be the distance between turret base and the real ground
+    barrel_axis: x
+    muzzle_offset_xyz: [0.0, 0.0, 0.0]
