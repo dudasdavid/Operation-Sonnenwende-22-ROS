@@ -1,0 +1,4 @@
+/**:
+  ros__parameters:
+    tilt_limit_deg: 30.0
+    pan_limit_deg: 40.0
