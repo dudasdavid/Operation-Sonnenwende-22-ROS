@@ -1,21 +1,40 @@
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import CompressedImage, Image
+from sensor_msgs.msg import CompressedImage
 from cv_bridge import CvBridge
 import cv2
 import threading
 import ultralytics
 from ament_index_python.packages import get_package_share_directory
 import os
+import numpy as np
+import turret_image_processing_py.support_lib as sup_lib 
 
 class ImageSubscriber(Node):
     def __init__(self):
         super().__init__('image_subscriber')
 
-        self.subscription = self.create_subscription(
+        self.get_logger().info(f"OpenCV version: {cv2.__version__}")
+        self.get_logger().info(f"Ultralytics version: {ultralytics.__version__}")
+
+        self.rgb_subscription = self.create_subscription(
             CompressedImage,
             'rgbd/color/image_raw/compressed',  # Replace with your topic name
-            self.image_callback,
+            self.rgb_image_callback,
+            1  # Queue size of 1
+        )
+
+        self.depth_subscription = self.create_subscription(
+            CompressedImage,
+            'rgbd/aligned_depth_to_color/image_raw/compressedDepth',  # Replace with your topic name
+            self.depth_image_callback,
+            1  # Queue size of 1
+        )
+
+        self.ir_subscription = self.create_subscription(
+            CompressedImage,
+            'rgbd/infra1/image_rect_raw/compressed',  # Replace with your topic name
+            self.ir_image_callback,
             1  # Queue size of 1
         )
 
@@ -24,15 +43,19 @@ class ImageSubscriber(Node):
 
         #self.model = ultralytics.YOLO('yolo11n.pt')
         self.model = ultralytics.YOLO(model_path[0])
-        print("Model file path:", self.model.ckpt_path)
+        self.get_logger().info(f"Model path: {self.model.ckpt_path}")
 
         # Initialize CvBridge
         self.bridge = CvBridge()
         
-        # Variable to store the latest frame
-        self.latest_frame = None
-        self.frame_lock = threading.Lock()  # Lock to ensure thread safety
-        
+        # Variable to store the latest frames
+        self.latest_rgb_frame = None
+        self.latest_depth_frame = None
+        self.latest_ir_frame = None
+        self.rgb_frame_lock = threading.Lock()  # Lock to ensure thread safety
+        self.depth_frame_lock = threading.Lock()
+        self.ir_frame_lock = threading.Lock()
+
         # Flag to control the display loop
         self.running = True
 
@@ -45,29 +68,50 @@ class ImageSubscriber(Node):
         while rclpy.ok() and self.running:
             rclpy.spin_once(self, timeout_sec=0.05)
 
-    def image_callback(self, msg):
+    def rgb_image_callback(self, msg):
         """Callback function to receive and store the latest frame."""
         # Convert ROS Image message to OpenCV format and store it
-        with self.frame_lock:
-            #self.latest_frame = self.bridge.imgmsg_to_cv2(msg, "bgr8")
-            self.latest_frame = self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding="bgr8")
+        with self.rgb_frame_lock:
+            self.latest_rgb_frame = self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding="bgr8")
+
+    def depth_image_callback(self, msg):
+        """Callback function to receive and store the latest frame."""
+        with self.depth_frame_lock:
+            self.latest_depth_frame = sup_lib.on_depth(msg)
+
+    def ir_image_callback(self, msg):
+        """Callback function to receive and store the latest frame."""
+        # Convert ROS Image message to OpenCV format and store it
+        with self.ir_frame_lock:
+            self.latest_ir_frame = self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding="bgr8")
 
     def display_image(self):
 
         # Create a single OpenCV window
-        cv2.namedWindow("frame", cv2.WINDOW_NORMAL)
-        cv2.resizeWindow("frame", 448,256)
+        cv2.namedWindow("Frame", cv2.WINDOW_NORMAL)
+        cv2.resizeWindow("Frame", 848,480)
 
         while rclpy.ok():
             # Check if there is a new frame available
-            if self.latest_frame is not None:
+            if self.latest_rgb_frame is not None:
 
                 # Process the current image
-                processed_frame = self.process_image(self.latest_frame)
+                processed_frame = self.process_image(self.latest_rgb_frame)
 
                 # Show the latest frame
-                cv2.imshow("frame", processed_frame)
-                self.latest_frame = None  # Clear the frame after displaying
+                cv2.imshow("Frame", processed_frame)
+                self.latest_rgb_frame = None  # Clear the frame after displaying
+
+            if self.latest_depth_frame is not None:
+                # Show the latest frame
+                print(self.latest_depth_frame[int(480/2)][int(848/2)])
+                cv2.imshow("Depth (m)", self.latest_depth_frame / np.nanmax(self.latest_depth_frame))
+                self.latest_depth_frame = None  # Clear the frame after displaying
+
+            if self.latest_ir_frame is not None:
+                # Show the latest frame
+                cv2.imshow("IR", self.latest_ir_frame)
+                self.latest_ir_frame = None  # Clear the frame after displaying
 
             # Check for quit key
             key = cv2.waitKey(6) & 0xFF
@@ -75,8 +119,7 @@ class ImageSubscriber(Node):
                 self.running = False
                 break
             elif key in [32, ord('s')]: # 32 = Space
-                
-                print("space pressed")
+                pass
 
         # Close OpenCV window after quitting
         cv2.destroyAllWindows()
@@ -86,8 +129,8 @@ class ImageSubscriber(Node):
 
         height, width = img.shape[:2]
 
-        if height != 256 or width != 448:
-            dim = (448, 256)
+        if height != 480 or width != 864:
+            dim = (864, 480)
             img = cv2.resize(img, dim, interpolation=cv2.INTER_AREA)
 
         '''
@@ -112,7 +155,7 @@ class ImageSubscriber(Node):
         79: 'toothbrush'}
         '''
 
-        results = self.model.track(img, persist = True, conf=0.1, imgsz = (256, 448))#, classes = [0,15])
+        results = self.model.track(img, persist = True, conf=0.1, imgsz = (480, 864))#, classes = [0,15])
         #print(results[0].boxes.cls) # cls, conf, id, xyxy, xywh
         annotated_img = results[0].plot()
         
@@ -124,9 +167,6 @@ class ImageSubscriber(Node):
         self.spin_thread.join()
 
 def main(args=None):
-
-    print("OpenCV version: %s" % cv2.__version__)
-    print("Ultralytics version: %s" % ultralytics.__version__)
 
     rclpy.init(args=args)
     node = ImageSubscriber()
@@ -142,4 +182,3 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
-    

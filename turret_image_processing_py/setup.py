@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'object_detection = turret_image_processing_py.object_detection:main',
+            'support_lib = turret_image_processing_py.support_lib:main',
         ],
     },
 )
